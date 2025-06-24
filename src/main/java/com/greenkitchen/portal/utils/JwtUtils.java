@@ -37,7 +37,7 @@ public class JwtUtils {
 
 		return Jwts.builder().setSubject((userPrincipal.getUsername()))
 				.setIssuedAt(new Date())
-				.setIssuer("The Apartment")
+				.setIssuer("The Green Kitchen")
 				.claim("roles", userPrincipal.getRoles())
 				.setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
 				.signWith(key(), SignatureAlgorithm.HS256).compact();

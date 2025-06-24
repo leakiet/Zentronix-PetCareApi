@@ -47,9 +47,9 @@ public class CustomerServiceImpl implements CustomerService {
     if (existingCustomer == null) {
       throw new IllegalArgumentException("Customer not found with id: " + customer.getId());
     }
-    existingCustomer.setName(customer.getName());
+    existingCustomer.setFirstName(customer.getFirstName());
+    existingCustomer.setLastName(customer.getLastName());
     existingCustomer.setEmail(customer.getEmail());
-    existingCustomer.setUsername(customer.getUsername());
     existingCustomer.setBirthDate(customer.getBirthDate());
     existingCustomer.setGender(customer.getGender());
     existingCustomer.setPhone(customer.getPhone());

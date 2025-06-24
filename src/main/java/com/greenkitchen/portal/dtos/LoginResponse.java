@@ -13,13 +13,9 @@ import lombok.Setter;
 @Getter
 @Setter
 public class LoginResponse {
-    private String name;
-    private String username;
+    private String id;
     private String email;
-    private Date birthDate;
-	private String gender;
-	private String phone;
-    private Address address;
+    private String role;
     private String token;
     private String tokenType;
 }
