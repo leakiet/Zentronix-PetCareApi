@@ -10,39 +10,64 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 
 import com.greenkitchen.portal.entities.Customer;
+import com.greenkitchen.portal.entities.Employee;
 
 public class MyUserDetails implements UserDetails {
 
 	private static final long serialVersionUID = 995564934432043084L;
 	
-	private Customer customer;
+	private static final String TYPE_CUSTOMER = "CUSTOMER";
+	private static final String TYPE_EMPLOYEE = "EMPLOYEE";
 	
+	private Customer customer;
+	private Employee employee;
+	private String userType;
+
 	public MyUserDetails(Customer customer) {
 		this.customer = customer;
+		this.userType = TYPE_CUSTOMER;
+	}
+
+	public MyUserDetails(Employee employee) {
+		this.employee = employee;
+		this.userType = TYPE_EMPLOYEE;
 	}
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
 		List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-		authorities.add(new SimpleGrantedAuthority("USER"));
+		if (userType.equals(TYPE_EMPLOYEE) && employee != null && employee.getRole() != null) {
+			authorities.add(new SimpleGrantedAuthority(employee.getRole()));
+		} else {
+			authorities.add(new SimpleGrantedAuthority("USER"));
+		}
 		return authorities;
 	}
 
 	@Override
 	public String getPassword() {
-		return customer.getPassword();
+		if (userType.equals(TYPE_EMPLOYEE) && employee != null) {
+			return employee.getPassword();
+		}
+		return customer != null ? customer.getPassword() : null;
 	}
 
 	@Override
 	public String getUsername() {
-		return customer.getEmail();
+		if (userType.equals(TYPE_EMPLOYEE) && employee != null) {
+			return employee.getEmail();
+		}
+		return customer != null ? customer.getEmail() : null;
 	}
 
 	public List<String> getRoles() {
 		List<String> roles = new ArrayList<>();
-		roles.add("USER");
+		if (userType.equals(TYPE_EMPLOYEE) && employee != null && employee.getRole() != null) {
+			roles.add(employee.getRole());
+		} else {
+			roles.add("USER");
+		}
 		return roles;
 	}
 
-	
 }
