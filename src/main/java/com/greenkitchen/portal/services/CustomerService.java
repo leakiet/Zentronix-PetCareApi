@@ -11,4 +11,6 @@ public interface CustomerService {
   Customer save(Customer customer);
   Customer findById(Long id);
   void deleteById(Long id);
+  Customer registerCustomer(Customer customer);
+  Customer verifyEmail(String email, String verifyToken); 
 }

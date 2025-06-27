@@ -11,11 +11,17 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import com.greenkitchen.portal.services.EmailService;
+import java.util.UUID;
+
 @Service
 public class CustomerServiceImpl implements CustomerService {
 
   @Autowired
   private CustomerRepository customerRepository;
+  
+  @Autowired
+  private EmailService emailService;
 
   private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
@@ -61,6 +67,48 @@ public class CustomerServiceImpl implements CustomerService {
   @Override
   public void deleteById(Long id) {
     customerRepository.deleteById(id);
+  }
+
+  @Override
+  public Customer registerCustomer(Customer customer) {
+    Customer existingCustomer = customerRepository.findByEmail(customer.getEmail());
+    if (existingCustomer != null) {
+      throw new IllegalArgumentException("Email already registered: " + customer.getEmail());
+    }
+    customer.setPassword(encoder.encode(customer.getPassword()));
+    String verifyToken = UUID.randomUUID().toString();
+    customer.setVerifyToken(verifyToken);
+    
+    Customer savedCustomer = customerRepository.save(customer);
+    
+    // Send verification email
+    emailService.sendVerificationEmail(
+        customer.getEmail(),
+        verifyToken
+    );
+    
+    return savedCustomer;
+  }
+
+  @Override
+  public Customer verifyEmail(String email, String token) {
+    Customer customer = customerRepository.findByEmail(email);
+    if (customer == null ){
+      throw new IllegalArgumentException("Customer not found with email: " + email);
+    }
+
+    if (customer.getIsActive()) {
+      throw new IllegalArgumentException("Email already verified");
+    }
+
+    if (!customer.getVerifyToken().equals(token)) {
+      throw new IllegalArgumentException("Invalid or expired verification token");
+    }
+    
+    customer.setIsActive(true);
+    customer.setVerifyToken(null);
+    customerRepository.save(customer);
+    return customer;
   }
 
 }
