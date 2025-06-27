@@ -22,6 +22,7 @@ public class Customer extends AbstractEntity {
 
 	private String firstName;
 	private String lastName;
+	
 	@JsonIgnore
 	private String password;
 
@@ -35,9 +36,8 @@ public class Customer extends AbstractEntity {
 
 	private Boolean isActive = false;
 
-	private Boolean isVerified = false;
-
-	private String verificationCode;
+	@JsonIgnore
+	private String verifyToken;
 
 	@Embedded
 	private Address address;
