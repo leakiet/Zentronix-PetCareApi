@@ -1,8 +1,5 @@
 package com.greenkitchen.portal.dtos;
 
-import java.sql.Date;
-import com.greenkitchen.portal.entities.Address;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

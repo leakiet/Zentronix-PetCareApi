@@ -8,5 +8,10 @@
     "name": "app.tokenExpirationMs",
     "type": "java.lang.String",
     "description": "A description for 'app.tokenExpirationMs'"
+  },
+  {
+    "name": "app.frontend.url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.frontend.url'"
   }
 ]}
