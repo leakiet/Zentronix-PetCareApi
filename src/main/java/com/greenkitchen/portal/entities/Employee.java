@@ -6,6 +6,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import com.greenkitchen.portal.enums.Role;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 
 @Entity
 @Getter
@@ -15,13 +21,22 @@ import jakarta.persistence.Table;
 @Table(name = "employees")
 public class Employee extends AbstractEntity {
   private String username;
-	private String firstName;
+
+  private String firstName;
+
   private String lastName;
+
   @JsonIgnore
   private String password;
+
+  @Email
   private String email;
+
   private String phone;
+
   private Boolean isActive = true;
-  private String role;
+
+  @Enumerated(EnumType.STRING)
+  private Role role;
 
 }
