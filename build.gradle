@@ -50,6 +50,10 @@ implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.modelmapper:modelmapper:3.2.0'
 	//DotEnv
 	implementation 'io.github.cdimascio:dotenv-java:3.0.1'
+	// Google OAuth2 - dependencies chính xác
+	implementation 'com.google.api-client:google-api-client:2.7.0'
+	implementation 'com.google.oauth-client:google-oauth-client:1.36.0'
+	implementation 'com.google.http-client:google-http-client-jackson2:1.45.0'
 
 }
 

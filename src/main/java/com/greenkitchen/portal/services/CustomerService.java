@@ -12,5 +12,10 @@ public interface CustomerService {
   Customer findById(Long id);
   void deleteById(Long id);
   Customer registerCustomer(Customer customer);
-  Customer verifyEmail(String email, String verifyToken); 
+  Customer verifyEmail(String email, String verifyToken);
+  Customer resendVerifyEmail(String email);
+  Customer checkLogin(String email, String password);
+  void sendOtpCode(String email);
+  boolean verifyOtpCode(String email, String otpCode);
+  void resetPassword(String email, String newPassword);
 }

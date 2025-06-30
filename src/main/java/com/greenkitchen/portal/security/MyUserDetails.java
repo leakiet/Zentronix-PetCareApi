@@ -37,7 +37,7 @@ public class MyUserDetails implements UserDetails {
 	public Collection<? extends GrantedAuthority> getAuthorities() {
 		List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 		if (userType.equals(TYPE_EMPLOYEE) && employee != null && employee.getRole() != null) {
-			authorities.add(new SimpleGrantedAuthority(employee.getRole()));
+			authorities.add(new SimpleGrantedAuthority(employee.getRole().name()));
 		} else {
 			authorities.add(new SimpleGrantedAuthority("USER"));
 		}
@@ -63,11 +63,46 @@ public class MyUserDetails implements UserDetails {
 	public List<String> getRoles() {
 		List<String> roles = new ArrayList<>();
 		if (userType.equals(TYPE_EMPLOYEE) && employee != null && employee.getRole() != null) {
-			roles.add(employee.getRole());
+			roles.add(employee.getRole().name());
 		} else {
 			roles.add("USER");
 		}
 		return roles;
 	}
 
+	// public Customer getCustomer() {
+	// 	return customer;
+	// }
+
+	// public Employee getEmployee() {
+	// 	return employee;
+	// }
+
+	// public String getUserType() {
+	// 	return userType;
+	// }
+
+	// @Override
+	// public boolean isAccountNonExpired() {
+	// 	return true;
+	// }
+
+	// @Override
+	// public boolean isAccountNonLocked() {
+	// 	return true;
+	// }
+
+	// @Override
+	// public boolean isCredentialsNonExpired() {
+	// 	return true;
+	// }
+
+	// @Override
+	// public boolean isEnabled() {
+	// 	if (userType.equals(TYPE_EMPLOYEE) && employee != null) {
+	// 		// Giả sử Employee có isActive field tương tự
+	// 		return true; // hoặc employee.getIsActive() nếu có
+	// 	}
+	// 	return customer != null ? customer.getIsActive() : false;
+	// }
 }
