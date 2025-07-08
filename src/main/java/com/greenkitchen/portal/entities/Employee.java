@@ -7,8 +7,6 @@ import lombok.Setter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import com.greenkitchen.portal.enums.Role;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.EnumType;

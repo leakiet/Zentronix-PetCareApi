@@ -1,4 +1,4 @@
-package com.greenkitchen.portal.config;
+package com.greenkitchen.portal.configs;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
