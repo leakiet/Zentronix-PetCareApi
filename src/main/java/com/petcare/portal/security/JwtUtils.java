@@ -1,4 +1,4 @@
-package com.petcare.portal.utils;
+package com.petcare.portal.security;
 
 import java.security.Key;
 import java.util.Date;

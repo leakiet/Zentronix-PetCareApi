@@ -24,7 +24,7 @@ import com.petcare.portal.security.MyUserDetailService;
 import com.petcare.portal.services.CustomerService;
 import com.petcare.portal.services.EmployeeService;
 import com.petcare.portal.services.GoogleAuthService;
-import com.petcare.portal.utils.JwtUtils;
+import com.petcare.portal.security.JwtUtils;
 
 import jakarta.validation.Valid;
 
@@ -38,7 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
-@RequestMapping("/apis/v1")
+@RequestMapping("/apis/v1/auth")
 public class AuthController {
   @Autowired
   private CustomerService customerService;
@@ -71,7 +71,6 @@ public class AuthController {
     }
     Customer customer = customerService.checkLogin(request.getEmail(), request.getPassword());
     LoginResponse response = mapper.map(customer, LoginResponse.class);
-    response.setRole("USER");
     response.setToken(jwtUtils.generateJwtToken(authentication));
     response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
     response.setTokenType("Bearer");
@@ -199,7 +198,6 @@ public class AuthController {
       
       // Return response giống như login thường
       LoginResponse response = mapper.map(customer, LoginResponse.class);
-      response.setRole("USER");
       response.setToken(jwt);
       response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
       response.setTokenType("Bearer");
@@ -253,7 +251,6 @@ public class AuthController {
         response = mapper.map(userDetails.getEmployee(), LoginResponse.class);
       } else if (userDetails.getCustomer() != null) {
         response = mapper.map(userDetails.getCustomer(), LoginResponse.class);
-        response.setRole("USER");
       }
       
       response.setToken(newAccessToken);

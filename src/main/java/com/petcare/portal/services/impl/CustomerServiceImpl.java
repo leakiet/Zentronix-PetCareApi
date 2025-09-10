@@ -63,7 +63,6 @@ public class CustomerServiceImpl implements CustomerService {
     existingCustomer.setFirstName(customer.getFirstName());
     existingCustomer.setLastName(customer.getLastName());
     existingCustomer.setEmail(customer.getEmail());
-    existingCustomer.setBirthDate(customer.getBirthDate());
     existingCustomer.setGender(customer.getGender());
     existingCustomer.setPhone(customer.getPhone());
     existingCustomer.setAddress(customer.getAddress());
@@ -102,7 +101,7 @@ public class CustomerServiceImpl implements CustomerService {
     customer.setPassword(encoder.encode(customer.getPassword()));
     String verifyToken = UUID.randomUUID().toString();
     customer.setVerifyToken(verifyToken);
-    customer.setVerifyTokenExpireAt(LocalDateTime.now().plusMinutes(1));
+    customer.setVerifyTokenExpireAt(LocalDateTime.now().plusMinutes(10));
     Customer savedCustomer = customerRepository.save(customer);
     // Send verification email
     emailService.sendVerificationEmail(
@@ -141,7 +140,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
     String verifyToken = UUID.randomUUID().toString();
     customer.setVerifyToken(verifyToken);
-    customer.setVerifyTokenExpireAt(LocalDateTime.now().plusMinutes(1));
+    customer.setVerifyTokenExpireAt(LocalDateTime.now().plusMinutes(10));
     customerRepository.save(customer);
     emailService.sendVerificationEmail(
         customer.getEmail(),
