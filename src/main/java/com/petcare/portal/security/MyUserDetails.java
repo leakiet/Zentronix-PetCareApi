@@ -39,7 +39,7 @@ public class MyUserDetails implements UserDetails {
 		if (userType.equals(TYPE_EMPLOYEE) && employee != null && employee.getRole() != null) {
 			authorities.add(new SimpleGrantedAuthority(employee.getRole().name()));
 		} else {
-			authorities.add(new SimpleGrantedAuthority("USER"));
+			authorities.add(new SimpleGrantedAuthority(customer.getRole().name()));
 		}
 		return authorities;
 	}
@@ -65,7 +65,7 @@ public class MyUserDetails implements UserDetails {
 		if (userType.equals(TYPE_EMPLOYEE) && employee != null && employee.getRole() != null) {
 			roles.add(employee.getRole().name());
 		} else {
-			roles.add("USER");
+			roles.add(customer.getRole().name());
 		}
 		return roles;
 	}
