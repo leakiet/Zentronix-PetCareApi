@@ -1,109 +1,490 @@
 package com.petcare.portal.services.impl;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.modelmapper.ModelMapper;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
 import com.petcare.portal.entities.ChatMessage;
 import com.petcare.portal.entities.Conversation;
 import com.petcare.portal.entities.Customer;
+import com.petcare.portal.controllers.WebSocketController;
 import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
 import com.petcare.portal.repositories.CustomerRepository;
 import com.petcare.portal.services.ChatService;
-
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ChatServiceImpl implements ChatService {
 
-	private final ChatClient chatClient;
-	private final ChatMessageRepository chatMessageRepo;
-	private final ConversationRepository conversationRepo;
-	private final CustomerRepository customerRepo;
-	private final ModelMapper mapper;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ConversationRepository conversationRepository;
+    private final CustomerRepository customerRepository;
+    private final ChatClient chatClient;
+    private final ResourceLoader resourceLoader;
+    private final ModelMapper modelMapper;
+    private final WebSocketController webSocketController;
 
-	@Override
-	public ChatResponse sendMessage(Long customerId, ChatRequest request) {
-		if (request == null || request.getMessage() == null || request.getMessage().isBlank())
-			throw new IllegalArgumentException("Message must not be empty");
+    @Value("${petcare.ai.max-messages-before-summary:20}")
+    private int maxMessagesBeforeSummary;
 
-		// ---- GUEST ----
-		if (customerId == null) {
-			String aiContent = callAi(request.getMessage());
-			return new ChatResponse(null, "AI", aiContent, true);
-		}
+    @Value("${petcare.ai.system-prompt-path:classpath:prompts/PetCareSystemPrompt.md}")
+    private String systemPromptPath;
 
-		// ---- LOGGED IN ----
-		Customer customer = customerRepo.findById(customerId)
-				.orElseThrow(() -> new EntityNotFoundException("Customer not found"));
+    @Value("${petcare.ai.context-max-messages:10}")
+    private int contextMaxMessages;
 
-		Conversation conv = resolveConversation(customer, request.getConversationId());
+    @Override
+    @Transactional
+    public ChatResponse sendMessage(Long customerId, ChatRequest request) {
+        try {
+            // Tìm hoặc tạo conversation
+            Conversation conversation = findOrCreateConversation(customerId, request.getConversationId());
 
-		ChatMessage userMsg = new ChatMessage(null, customer, conv, customer.getFirstName(), false,
-				request.getMessage(), LocalDateTime.now());	
-		chatMessageRepo.save(userMsg);
+            // Tạo tin nhắn từ user
+            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), customerId);
+            chatMessageRepository.save(userMessage);
 
-		String aiContent = callAi(request.getMessage());
+            // Send user message via WebSocket
+            ChatResponse userResponse = convertToChatResponse(userMessage);
+            webSocketController.sendMessageUpdate(conversation.getId(), userResponse);
 
-		ChatMessage aiMsg = new ChatMessage(null, customer, conv, "AI", true, aiContent, LocalDateTime.now());
-		chatMessageRepo.save(aiMsg);
+            // Send AI typing indicator
+            log.info("AI started processing message for conversation: {}", conversation.getId());
+            webSocketController.sendConversationStatus(conversation.getId(), "AI_PROCESSING");
 
-		return new ChatResponse(conv.getId(), "AI", aiContent, true);
-	}
+            // Lấy số lượng tin nhắn để quyết định strategy
+            long messageCount = chatMessageRepository.countByConversation(conversation);
+            boolean needsSummary = messageCount > maxMessagesBeforeSummary;
 
-	@Override
-	public List<ChatResponse> getMessagesByConversation(Long conversationId) {
-		Conversation conv = conversationRepo.findById(conversationId)
-				.orElseThrow(() -> new EntityNotFoundException("Conversation not found"));
-		return chatMessageRepo.findByConversation(conv).stream().map(m -> mapper.map(m, ChatResponse.class))
-				.collect(Collectors.toList());
-	}
+            List<ChatMessage> contextMessages;
+            if (needsSummary) {
+                // Chỉ lấy messages gần nhất cho context
+                Pageable pageable = PageRequest.of(0, contextMaxMessages,
+                    Sort.by(Sort.Direction.DESC, "timestamp"));
+                Page<ChatMessage> messagePage = chatMessageRepository
+                    .findByConversationOrderByTimestampDesc(conversation, pageable);
+                contextMessages = messagePage.getContent();
+                // Reverse để có thứ tự đúng
+                java.util.Collections.reverse(contextMessages);
+            } else {
+                // Lấy tất cả messages khi chưa cần summary
+                contextMessages = chatMessageRepository.findByConversation(conversation);
+            }
 
-	@Override
-	public List<Long> getConversationsByCustomer(Long customerId) {
-		Customer c = customerRepo.findById(customerId)
-				.orElseThrow(() -> new EntityNotFoundException("Customer not found"));
-		return conversationRepo.findByCustomer(c).stream().map(Conversation::getId).toList();
-	}
+            String aiResponse;
+            if (needsSummary && conversation.getSummary() == null) {
+                // Tạo tóm tắt từ tất cả messages và lưu vào database
+                List<ChatMessage> allMessages = chatMessageRepository.findByConversation(conversation);
+                String summary = generateSummary(allMessages);
+                conversation.setSummary(summary);
+                conversationRepository.save(conversation);
 
-	// ----- helpers -----
-	private String callAi(String prompt) {
-		  return chatClient
-			        .prompt()
-			        .system("Bạn là một chuyên gia dinh dưỡng tại PetCare, "
-			        		+ "chuyên tư vấn thực đơn lành mạnh, hỗ trợ giảm cân,"
-			        		+ " tăng cân và giữ dáng."
-			        		+ " Bạn có thể tính toán lượng calo ước lượng trong từng món ăn, "
-			        		+ "đưa ra gợi ý thay thế lành mạnh, đồng thời luôn trả lời bằng tiếng Việt, "
-			        		+ "ngắn gọn, dễ hiểu, thân thiện.")
-			        .user(prompt)
-			        .call()
-			        .content();	}
+                // Tạo context với tóm tắt
+                aiResponse = generateAIResponseWithSummary(conversation, userMessage, summary);
+            } else if (needsSummary && conversation.getSummary() != null) {
+                // Sử dụng tóm tắt đã có
+                aiResponse = generateAIResponseWithSummary(conversation, userMessage, conversation.getSummary());
+            } else {
+                // Không cần tóm tắt, sử dụng context messages
+                aiResponse = generateAIResponse(conversation, contextMessages);
+            }
 
-	private Conversation resolveConversation(Customer customer, Long convId) {
-		if (convId != null) {
-			Conversation conv = conversationRepo.findById(convId)
-					.orElseThrow(() -> new EntityNotFoundException("Conversation not found"));
-			if (conv.getCustomer() != null && !conv.getCustomer().getId().equals(customer.getId())) {
-				throw new SecurityException("Conversation không thuộc về bạn");
-			}
-			return conv;
-		}
-		Conversation newConv = new Conversation();
-		newConv.setCustomer(customer);
-		newConv.setTitle("New Conversation");
-		newConv.setStartTime(LocalDateTime.now());
-		return conversationRepo.save(newConv);
-	}
+            // Lưu phản hồi từ AI
+            ChatMessage aiMessage = createAIMessage(conversation, aiResponse, customerId);
+            chatMessageRepository.save(aiMessage);
+
+            // Send AI response via WebSocket
+            ChatResponse aiResponseObj = convertToChatResponse(aiMessage);
+            webSocketController.sendMessageUpdate(conversation.getId(), aiResponseObj);
+
+            // Send completion status
+            webSocketController.sendConversationStatus(conversation.getId(), "COMPLETED");
+
+            log.info("AI completed processing for conversation: {}", conversation.getId());
+
+            return aiResponseObj;
+
+        } catch (Exception e) {
+            log.error("Error processing chat message", e);
+            return new ChatResponse(
+                request.getConversationId(),
+                "PetCare AI",
+                "Xin lỗi, có lỗi xảy ra khi xử lý tin nhắn của bạn. Vui lòng thử lại sau.",
+                true,
+                "ERROR",
+                LocalDateTime.now()
+            );
+        }
+    }
+
+    @Override
+    public List<ChatResponse> getMessagesByConversation(Long conversationId) {
+        Optional<Conversation> conversationOpt = conversationRepository.findById(conversationId);
+        if (conversationOpt.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<ChatMessage> messages = chatMessageRepository.findByConversation(conversationOpt.get());
+        return messages.stream()
+                .map(this::convertToChatResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Long> getConversationsByCustomer(Long customerId) {
+        if (customerId == null) {
+            return new ArrayList<>();
+        }
+
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+
+        List<Conversation> conversations = conversationRepository.findByCustomer(customer);
+        return conversations.stream()
+                .map(Conversation::getId)
+                .collect(Collectors.toList());
+    }
+
+    private Conversation findOrCreateConversation(Long customerId, Long conversationId) {
+        if (conversationId != null) {
+            Optional<Conversation> existingConversation = conversationRepository.findById(conversationId);
+            if (existingConversation.isPresent()) {
+                return existingConversation.get();
+            }
+        }
+
+        // Tạo conversation mới
+        Conversation newConversation = new Conversation();
+        newConversation.setTitle("Cuộc trò chuyện mới");
+        newConversation.setStartTime(LocalDateTime.now());
+
+        if (customerId != null) {
+            Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+            newConversation.setCustomer(customer);
+        }
+
+        return conversationRepository.save(newConversation);
+    }
+
+    private ChatMessage createUserMessage(Conversation conversation, String message, Long customerId) {
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setConversation(conversation);
+        chatMessage.setContent(message);
+        chatMessage.setSenderName("User");
+        chatMessage.setIsFromAI(false);
+        chatMessage.setTimestamp(LocalDateTime.now());
+
+        if (customerId != null) {
+            Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+            chatMessage.setCustomer(customer);
+            chatMessage.setSenderName(customer.getFirstName() + " " + customer.getLastName());
+        }
+
+        return chatMessage;
+    }
+
+    private ChatMessage createAIMessage(Conversation conversation, String message, Long customerId) {
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setConversation(conversation);
+        chatMessage.setContent(message);
+        chatMessage.setSenderName("PetCare AI");
+        chatMessage.setIsFromAI(true);
+        chatMessage.setTimestamp(LocalDateTime.now());
+
+        if (customerId != null) {
+            Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+            chatMessage.setCustomer(customer);
+        }
+
+        return chatMessage;
+    }
+
+    private String generateSummary(List<ChatMessage> messages) {
+        try {
+            log.info("Generating summary for conversation with {} messages", messages.size());
+
+            // Build conversation context với format tốt hơn
+            StringBuilder promptBuilder = new StringBuilder();
+            promptBuilder.append("=== CUỘC TRÒ CHUYỆN VỀ CHĂM SÓC THÚ CƯNG ===\n\n");
+
+            for (ChatMessage msg : messages) {
+                String sender = msg.getIsFromAI() ? "🤖 AI: " : "👤 User: ";
+                promptBuilder.append(sender).append(msg.getContent()).append("\n");
+            }
+
+            // Enhanced summary prompt
+            String summaryPrompt = """
+                Nhiệm vụ: Tóm tắt cuộc trò chuyện về chăm sóc thú cưng một cách CHI TIẾT và HỮU ÍCH.
+
+                Yêu cầu tóm tắt PHẢI bao gồm:
+                1. **Thông tin thú cưng**: Loài, tuổi, giống, triệu chứng (nếu có)
+                2. **Vấn đề chính**: Những vấn đề đã được thảo luận
+                3. **Lời khuyên đã đưa ra**: Các giải pháp và hướng dẫn cụ thể
+                4. **Trạng thái hiện tại**: Tình hình sức khỏe sau các lời khuyên
+                5. **Hành động tiếp theo**: Những gì cần làm tiếp theo
+
+                Hướng dẫn:
+                - Giữ lại thông tin quan trọng, loại bỏ phần lặp lại
+                - Tập trung vào vấn đề sức khỏe và giải pháp
+                - Viết bằng tiếng Việt, rõ ràng, logic
+                - Độ dài: 200-400 từ
+
+                Tóm tắt:
+                """;
+
+            String fullPrompt = summaryPrompt + "\n\n" + promptBuilder.toString();
+
+            String summary = chatClient.prompt()
+                .system("Bạn là chuyên gia tóm tắt thông tin y tế thú cưng.")
+                .user(fullPrompt)
+                .call()
+                .content();
+
+            log.info("Generated summary with length: {}", summary.length());
+            return summary;
+
+        } catch (Exception e) {
+            log.error("Error generating summary", e);
+            return "Không thể tạo tóm tắt. Cuộc trò chuyện về chăm sóc thú cưng với các vấn đề sức khỏe và lời khuyên.";
+        }
+    }
+
+    private String generateAIResponseWithSummary(Conversation conversation, ChatMessage userMessage, String summary) {
+        try {
+            log.debug("Generating AI response with summary for conversation: {}", conversation.getId());
+
+            String systemPrompt = loadSystemPrompt();
+
+            // Enhanced context with summary
+            String contextPrompt = String.format("""
+                === THÔNG TIN LỊCH SỬ CUỘC TRÒ CHUYỆN ===
+                %s
+
+                === CÂU HỎI MỚI CỦA NGƯỜI DÙNG ===
+                %s
+
+                === HƯỚNG DẪN TRẢ LỜI ===
+                - Sử dụng thông tin từ lịch sử để trả lời phù hợp
+                - Tham chiếu lại các vấn đề đã thảo luận trước đây
+                - Đảm bảo tính liên tục và logic trong lời khuyên
+                - Nếu cần, đề cập lại các triệu chứng hoặc vấn đề đã được nói đến
+                - Trả lời bằng tiếng Việt một cách thân thiện và chuyên nghiệp
+                """, summary, userMessage.getContent());
+
+            String fullPrompt = systemPrompt + "\n\n" + contextPrompt;
+
+            log.debug("Full prompt length: {}", fullPrompt.length());
+
+            String response = chatClient.prompt()
+                .system(systemPrompt)
+                .user(contextPrompt)
+                .call()
+                .content();
+
+            log.debug("Generated response length: {}", response.length());
+            return response;
+
+        } catch (Exception e) {
+            log.error("Error generating AI response with summary", e);
+            return "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.";
+        }
+    }
+
+    private String generateAIResponse(Conversation conversation, List<ChatMessage> messages) {
+        try {
+            log.debug("Generating AI response for conversation {} with {} messages",
+                     conversation.getId(), messages.size());
+
+            String systemPrompt = loadSystemPrompt();
+
+            // Smart context building - ưu tiên tin nhắn quan trọng
+            String context = buildSmartContext(messages);
+
+            String fullPrompt = systemPrompt + "\n\n=== LỊCH SỬ CUỘC TRÒ CHUYỆN ===\n" + context +
+                              "\n\n=== CÂU HỎI MỚI ===";
+
+            log.debug("Context length: {}, Full prompt length: {}", context.length(), fullPrompt.length());
+
+            String response = chatClient.prompt()
+                .system(systemPrompt)
+                .user(fullPrompt)
+                .call()
+                .content();
+
+            log.debug("Generated response length: {}", response.length());
+            return response;
+
+        } catch (Exception e) {
+            log.error("Error generating AI response", e);
+            return "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.";
+        }
+    }
+
+    /**
+     * Xây dựng context thông minh - ưu tiên tin nhắn quan trọng
+     */
+    private String buildSmartContext(List<ChatMessage> messages) {
+        if (messages.isEmpty()) return "";
+
+        StringBuilder context = new StringBuilder();
+        List<String> importantKeywords = List.of(
+            "bệnh", "ốm", "triệu chứng", "thuốc", "bác sĩ", "khám", "tiêm",
+            "ăn", "uống", "đau", "sốt", "ói", "tiêu chảy", "ho", "hắt hơi"
+        );
+
+        // Lấy tất cả messages gần nhất
+        int startIndex = Math.max(0, messages.size() - contextMaxMessages);
+
+        for (int i = startIndex; i < messages.size(); i++) {
+            ChatMessage msg = messages.get(i);
+            String sender = msg.getIsFromAI() ? "🤖 AI: " : "👤 User: ";
+
+            // Đánh dấu tin nhắn quan trọng
+            boolean isImportant = importantKeywords.stream()
+                .anyMatch(keyword -> msg.getContent().toLowerCase().contains(keyword));
+
+            if (isImportant) {
+                sender = "🚨 " + sender; // Đánh dấu tin nhắn quan trọng
+            }
+
+            context.append(sender).append(msg.getContent()).append("\n");
+        }
+
+        return context.toString();
+    }
+
+    private ChatResponse convertToChatResponse(ChatMessage message) {
+        ChatResponse response = modelMapper.map(message, ChatResponse.class);
+        response.setConversationId(message.getConversation().getId());
+        response.setStatus("SENT");
+        response.setTimestamp(message.getTimestamp() != null ? message.getTimestamp() : LocalDateTime.now());
+        return response;
+    }
+
+    // Alternative manual conversion if ModelMapper has issues
+    private ChatResponse convertToChatResponseManual(ChatMessage message) {
+        return new ChatResponse(
+            message.getConversation().getId(),
+            message.getSenderName(),
+            message.getContent(),
+            message.getIsFromAI(),
+            "SENT",
+            message.getTimestamp() != null ? message.getTimestamp() : LocalDateTime.now()
+        );
+    }
+
+    /**
+     * Update summary khi conversation có thêm nhiều messages
+     */
+    @Transactional
+    public void updateConversationSummaryIfNeeded(Long conversationId) {
+        try {
+            Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found: " + conversationId));
+
+            long messageCount = chatMessageRepository.countByConversation(conversation);
+
+            // Update summary nếu có thêm 10 messages mới
+            if (conversation.getSummary() != null && messageCount % 10 == 0) {
+                log.info("Updating summary for conversation {} with {} messages", conversationId, messageCount);
+
+                List<ChatMessage> allMessages = chatMessageRepository.findByConversation(conversation);
+                String newSummary = generateSummary(allMessages);
+
+                conversation.setSummary(newSummary);
+                conversationRepository.save(conversation);
+
+                log.info("Updated summary for conversation {}", conversationId);
+            }
+        } catch (Exception e) {
+            log.error("Error updating conversation summary", e);
+        }
+    }
+
+    /**
+     * Force regenerate summary for debugging
+     */
+    @Transactional
+    public String regenerateSummary(Long conversationId) {
+        try {
+            Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found: " + conversationId));
+
+            List<ChatMessage> allMessages = chatMessageRepository.findByConversation(conversation);
+            String newSummary = generateSummary(allMessages);
+
+            conversation.setSummary(newSummary);
+            conversationRepository.save(conversation);
+
+            return newSummary;
+        } catch (Exception e) {
+            log.error("Error regenerating summary", e);
+            return "Error regenerating summary: " + e.getMessage();
+        }
+    }
+
+    private String loadSystemPrompt() {
+        try {
+            Resource resource = resourceLoader.getResource(systemPromptPath);
+            if (resource.exists()) {
+                return new String(java.nio.file.Files.readAllBytes(resource.getFile().toPath()));
+            }
+        } catch (Exception e) {
+            log.warn("Could not load system prompt from {}, using default", systemPromptPath, e);
+        }
+        return getDefaultSystemPrompt();
+    }
+
+    private String loadSystemPromptForSummary() {
+        return "Bạn là trợ lý AI chuyên về chăm sóc thú cưng. Hãy tóm tắt cuộc trò chuyện một cách chính xác và hữu ích.";
+    }
+
+    private String getDefaultSystemPrompt() {
+        return """
+            Bạn là trợ lý AI chuyên về chăm sóc thú cưng cho PetCare Portal.
+
+            Nhiệm vụ của bạn:
+            - Cung cấp thông tin chính xác về chăm sóc thú cưng
+            - Hướng dẫn chủ nuôi cách chăm sóc thú cưng đúng cách
+            - Tư vấn về dinh dưỡng, sức khỏe, và hành vi của thú cưng
+            - Khuyến khích phòng ngừa bệnh tật và kiểm tra sức khỏe định kỳ
+            - Hỗ trợ giải đáp thắc mắc về các vấn đề thường gặp
+
+            Nguyên tắc hoạt động:
+            - Luôn trả lời bằng tiếng Việt một cách thân thiện và dễ hiểu
+            - Không đưa ra chẩn đoán bệnh cụ thể
+            - Luôn khuyến khích tham khảo ý kiến bác sĩ thú y khi cần thiết
+            - Tập trung vào việc giáo dục và hướng dẫn chủ nuôi
+            - Sử dụng ngôn ngữ tích cực và khuyến khích
+
+            Khi trả lời:
+            - Lắng nghe và thấu hiểu lo lắng của chủ nuôi
+            - Cung cấp thông tin dựa trên kiến thức chuyên môn
+            - Đưa ra lời khuyên thực tế và khả thi
+            - Khuyến khích sự tương tác tích cực với thú cưng
+            - Hướng dẫn chủ nuôi nhận biết dấu hiệu bất thường
+            """;
+    }
 }

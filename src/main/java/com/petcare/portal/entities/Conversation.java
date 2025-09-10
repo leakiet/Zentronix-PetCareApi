@@ -17,6 +17,9 @@ public class Conversation extends AbstractEntity {
     private String title;
     private LocalDateTime startTime;
 
+    @Lob
+    private String summary; // Tóm tắt cuộc trò chuyện khi có quá nhiều tin nhắn
+
     @OneToMany(mappedBy = "conversation",
                cascade = CascadeType.ALL,
                orphanRemoval = true)
