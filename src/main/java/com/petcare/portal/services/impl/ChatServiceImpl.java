@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 public class ChatServiceImpl implements ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final ConversationRepository conversationRepository;
-    private final CustomerRepository customerRepository;
+    private final UserRepository customerRepository;
     private final ChatClient chatClient;
     private final ResourceLoader resourceLoader;
     private final ModelMapper modelMapper;
@@ -150,7 +150,7 @@ public class ChatServiceImpl implements ChatService {
             return new ArrayList<>();
         }
 
-        Customer customer = customerRepository.findById(customerId)
+        User customer = customerRepository.findById(customerId)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
 
         List<Conversation> conversations = conversationRepository.findByCustomer(customer);
@@ -173,7 +173,7 @@ public class ChatServiceImpl implements ChatService {
         newConversation.setStartTime(LocalDateTime.now());
 
         if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId)
+            User customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
             newConversation.setCustomer(customer);
         }
@@ -190,7 +190,7 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setTimestamp(LocalDateTime.now());
 
         if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId)
+            User customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
             chatMessage.setCustomer(customer);
             chatMessage.setSenderName(customer.getFirstName() + " " + customer.getLastName());
@@ -208,7 +208,7 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setTimestamp(LocalDateTime.now());
 
         if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId)
+            User customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
             chatMessage.setCustomer(customer);
         }
