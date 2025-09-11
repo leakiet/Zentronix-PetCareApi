@@ -1,5 +1,20 @@
 package com.petcare.portal.controllers;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
 import com.petcare.portal.entities.Conversation;
@@ -7,13 +22,8 @@ import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
 import com.petcare.portal.services.ChatService;
 import com.petcare.portal.services.impl.ChatServiceImpl;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/apis/v1/chat")
@@ -23,19 +33,19 @@ public class ChatController {
     private final ChatService chatService;
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatController.class);
+    private static final Logger log =LoggerFactory.getLogger(ChatController.class);
 
     /**
-     * Endpoint để gửi tin nhắn đến AI.
-     * @param customerId ID của khách hàng (có thể null nếu là khách vãng lai).
-     * @param request Nội dung tin nhắn.
-     * @return Phản hồi từ AI.
+     * Endpoint to send message to AI.
+     * @param userEmail User's email (null for guest users).
+     * @param request Chat request containing message and conversation details.
+     * @return AI response.
      */
     @PostMapping("/send")
     public ResponseEntity<ChatResponse> sendMessage(
-            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "userEmail", required = false) String userEmail,
             @RequestBody ChatRequest request) {
-        ChatResponse response = chatService.sendMessage(customerId, request);
+        ChatResponse response = chatService.sendMessage(userEmail, request);
         return ResponseEntity.ok(response);
     }
 
@@ -52,14 +62,14 @@ public class ChatController {
     }
 
     /**
-     * Endpoint để lấy danh sách ID các cuộc trò chuyện của một khách hàng.
-     * @param customerId ID của khách hàng.
-     * @return Danh sách ID cuộc trò chuyện.
+     * Endpoint to get conversation IDs for a user by email.
+     * @param userEmail User's email.
+     * @return List of conversation IDs.
      */
     @GetMapping("/conversations")
     public ResponseEntity<List<Long>> getConversations(
-            @RequestParam("customerId") Long customerId) {
-        List<Long> conversationIds = chatService.getConversationsByUser(customerId);
+            @RequestParam("userEmail") String userEmail) {
+        List<Long> conversationIds = chatService.getConversationsByUser(userEmail);
         return ResponseEntity.ok(conversationIds);
     }
 
@@ -312,16 +322,16 @@ public class ChatController {
     }
     
     /**
-     * Test endpoint để verify transaction rollback fix
+     * Test endpoint to verify transaction rollback fix
      */
     @PostMapping("/test-transaction")
     public ResponseEntity<Map<String, Object>> testTransactionFix(
-            @RequestParam Long customerId,
+            @RequestParam String userEmail,
             @RequestParam String testMessage) {
 
         Map<String, Object> result = new HashMap<>();
         result.put("testStarted", true);
-        result.put("customerId", customerId);
+        result.put("userEmail", userEmail);
         result.put("testMessage", testMessage);
         result.put("timestamp", java.time.LocalDateTime.now());
 
@@ -331,7 +341,7 @@ public class ChatController {
             testRequest.setMessage(testMessage);
             testRequest.setConversationId(null);
 
-            ChatResponse response = chatService.sendMessage(customerId, testRequest);
+            ChatResponse response = chatService.sendMessage(userEmail, testRequest);
 
             result.put("success", true);
             result.put("response", response);

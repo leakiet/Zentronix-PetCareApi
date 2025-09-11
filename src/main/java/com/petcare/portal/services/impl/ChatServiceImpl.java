@@ -55,13 +55,22 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public ChatResponse sendMessage(Long userId, ChatRequest request) {
+    public ChatResponse sendMessage(String email, ChatRequest request) {
         try {
+            // Tìm user theo email (có thể null cho khách vãng lai)
+            User user = null;
+            if (email != null && !email.trim().isEmpty()) {
+                user = userRepository.findByEmail(email);
+                if (user == null) {
+                    throw new IllegalArgumentException("User not found with email: " + email);
+                }
+            }
+
             // Tìm hoặc tạo conversation
-            Conversation conversation = findOrCreateConversation(userId, request.getConversationId());
+            Conversation conversation = findOrCreateConversation(user != null ? user.getId() : null, request.getConversationId());
 
             // Tạo tin nhắn từ user
-            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), userId);
+            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), user != null ? user.getId() : null);
             chatMessageRepository.save(userMessage);
 
             // Lấy số lượng tin nhắn để quyết định strategy
@@ -103,7 +112,7 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // Lưu phản hồi từ AI
-            ChatMessage aiMessage = createAIMessage(conversation, aiResponse, userId);
+            ChatMessage aiMessage = createAIMessage(conversation, aiResponse, user != null ? user.getId() : null);
             chatMessageRepository.save(aiMessage);
 
             return new ChatResponse(
@@ -150,13 +159,15 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public List<Long> getConversationsByUser(Long userId) {
-        if (userId == null) {
+    public List<Long> getConversationsByUser(String email) {
+        if (email == null || email.trim().isEmpty()) {
             return new ArrayList<>();
         }
 
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+        User user = userRepository.findByEmail(email);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found with email: " + email);
+        }
 
         List<Conversation> conversations = conversationRepository.findByUser(user);
         return conversations.stream()
