@@ -5,6 +5,7 @@ import com.petcare.portal.enums.AdoptionStatus;
 import com.petcare.portal.enums.GenderPet;
 import com.petcare.portal.enums.PetHealthStatus;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -34,11 +35,9 @@ public class AdoptionListing extends AbstractEntity {
   private PetHealthStatus status;
 
   @Enumerated(EnumType.STRING)
-  private AdoptionStatus adoptionStatus = AdoptionStatus.PENDING;
+  private AdoptionStatus adoptionStatus;
 
   private String image;
-
-  private String shelterId;
 
   private String description;
 
@@ -46,9 +45,11 @@ public class AdoptionListing extends AbstractEntity {
   private GenderPet genderPet;
 
   @ManyToOne
+  @JoinColumn(name = "breed_id")
   private Breed breed;
 
   @ManyToOne
+  @JoinColumn(name = "species_id")
   private Species species;
 
   private String location;
