@@ -1,16 +1,12 @@
 package com.petcare.portal.services.impl;
 
-import com.petcare.portal.dtos.ChatRequest;
-import com.petcare.portal.dtos.ChatResponse;
-import com.petcare.portal.entities.ChatMessage;
-import com.petcare.portal.entities.Conversation;
-import com.petcare.portal.entities.User;
-import com.petcare.portal.repositories.ChatMessageRepository;
-import com.petcare.portal.repositories.ConversationRepository;
-import com.petcare.portal.repositories.UserRepository;
-import com.petcare.portal.services.ChatService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,11 +19,18 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import com.petcare.portal.dtos.ChatRequest;
+import com.petcare.portal.dtos.ChatResponse;
+import com.petcare.portal.entities.ChatMessage;
+import com.petcare.portal.entities.Conversation;
+import com.petcare.portal.entities.User;
+import com.petcare.portal.repositories.ChatMessageRepository;
+import com.petcare.portal.repositories.ConversationRepository;
+import com.petcare.portal.repositories.UserRepository;
+import com.petcare.portal.services.ChatService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -74,7 +77,8 @@ public class ChatServiceImpl implements ChatService {
                     .findByConversationOrderByTimestampDesc(conversation, pageable);
                 contextMessages = messagePage.getContent();
                 // Reverse để có thứ tự đúng
-                java.util.Collections.reverse(contextMessages);
+                contextMessages = new ArrayList<>(messagePage.getContent());
+                Collections.reverse(contextMessages);
             } else {
                 // Lấy tất cả messages khi chưa cần summary
                 contextMessages = chatMessageRepository.findByConversation(conversation);
