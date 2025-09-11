@@ -14,7 +14,7 @@ public class AdoptionListingsResponse {
   private String shelterId;
   private String petName;
   private String description;
-  private String genderPet;
+  private String gender;
   private Breed breed;
   private Species species;
   private String status;

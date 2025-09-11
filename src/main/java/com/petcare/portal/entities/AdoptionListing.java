@@ -44,8 +44,6 @@ public class AdoptionListing extends AbstractEntity {
   @Enumerated(EnumType.STRING)
   private AdoptionStatus adoptionStatus;
 
-  private String description;
-
   @ManyToOne
   @JoinColumn(name = "breed_id")
   private Breed breed;
