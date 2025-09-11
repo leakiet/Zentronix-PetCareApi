@@ -1,10 +1,11 @@
 package com.petcare.portal.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.google.api.client.util.DateTime;
 import com.petcare.portal.enums.AdoptionStatus;
+import com.petcare.portal.enums.GenderPet;
 import com.petcare.portal.enums.PetHealthStatus;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -29,15 +30,29 @@ public class AdoptionListing extends AbstractEntity {
   private Customer shelter;
 
   private String petName;
-  private String species;
-  private String breed;
-  private String age;
-  private String description;
-  private String image;
 
   @Enumerated(EnumType.STRING)
   private PetHealthStatus status;
 
   @Enumerated(EnumType.STRING)
-  private AdoptionStatus adoptionStatus = AdoptionStatus.PENDING;
+  private AdoptionStatus adoptionStatus;
+
+  private String image;
+
+  private String description;
+
+  @Enumerated(EnumType.STRING)
+  private GenderPet genderPet;
+
+  @ManyToOne
+  @JoinColumn(name = "breed_id")
+  private Breed breed;
+
+  @ManyToOne
+  @JoinColumn(name = "species_id")
+  private Species species;
+
+  private String location;
+
+  private int age;
 }
