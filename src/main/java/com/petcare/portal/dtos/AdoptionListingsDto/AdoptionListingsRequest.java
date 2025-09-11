@@ -10,7 +10,7 @@ public class AdoptionListingsRequest {
   private String shelterId;
   private String petName;
   private String description;
-  private String genderPet;
+  private String gender;
   private Long breedId;
   private Long speciesId;
   private String status;
