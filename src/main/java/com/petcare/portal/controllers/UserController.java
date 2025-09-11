@@ -47,5 +47,11 @@ public class UserController {
     }
   }
 
+  @PutMapping("/update")
+  public String getMethodName(@RequestBody String param) {
+      return new String();
+  }
+  
+
 
 }

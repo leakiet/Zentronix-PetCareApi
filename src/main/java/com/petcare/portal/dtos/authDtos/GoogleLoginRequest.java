@@ -1,6 +1,5 @@
-package com.petcare.portal.dtos;
+package com.petcare.portal.dtos.authDtos;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,8 +10,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class EmailRequest {
-  @NotBlank(message = "Email is required")
-  @Email(message = "Invalid email format")
-  String email;
+public class GoogleLoginRequest {
+  @NotBlank(message = "Google ID token is required")
+  private String idToken;
 }
