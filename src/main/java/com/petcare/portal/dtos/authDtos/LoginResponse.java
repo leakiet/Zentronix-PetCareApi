@@ -1,4 +1,4 @@
-package com.petcare.portal.dtos;
+package com.petcare.portal.dtos.authDtos;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

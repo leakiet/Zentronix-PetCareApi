@@ -10,14 +10,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.petcare.portal.dtos.EmailRequest;
-import com.petcare.portal.dtos.GoogleLoginRequest;
-import com.petcare.portal.dtos.LoginRequest;
-import com.petcare.portal.dtos.LoginResponse;
-import com.petcare.portal.dtos.RegisterRequest;
-import com.petcare.portal.dtos.RegisterResponse;
-import com.petcare.portal.dtos.ResetPasswordRequest;
-import com.petcare.portal.dtos.VerifyRequest;
 import com.petcare.portal.entities.User;
 import com.petcare.portal.security.MyUserDetails;
 import com.petcare.portal.security.MyUserDetailService;
@@ -28,6 +20,14 @@ import com.petcare.portal.security.JwtUtils;
 
 import jakarta.validation.Valid;
 
+import com.petcare.portal.dtos.authDtos.EmailRequest;
+import com.petcare.portal.dtos.authDtos.GoogleLoginRequest;
+import com.petcare.portal.dtos.authDtos.LoginRequest;
+import com.petcare.portal.dtos.authDtos.LoginResponse;
+import com.petcare.portal.dtos.authDtos.RegisterRequest;
+import com.petcare.portal.dtos.authDtos.RegisterResponse;
+import com.petcare.portal.dtos.authDtos.ResetPasswordRequest;
+import com.petcare.portal.dtos.authDtos.VerifyRequest;
 import com.petcare.portal.entities.Employee;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
