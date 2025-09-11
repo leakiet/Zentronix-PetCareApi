@@ -10,9 +10,11 @@ import java.util.List;
 @Table(name = "conversations")
 public class Conversation extends AbstractEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
-    private User customer;
+    private static final long serialVersionUID = -3302396597174055915L;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;          // null = guest
 
     private String title;
     private LocalDateTime startTime;

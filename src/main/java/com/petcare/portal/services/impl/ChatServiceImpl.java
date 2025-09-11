@@ -1,16 +1,12 @@
 package com.petcare.portal.services.impl;
 
-import com.petcare.portal.dtos.ChatRequest;
-import com.petcare.portal.dtos.ChatResponse;
-import com.petcare.portal.entities.ChatMessage;
-import com.petcare.portal.entities.Conversation;
-import com.petcare.portal.entities.User;
-import com.petcare.portal.repositories.ChatMessageRepository;
-import com.petcare.portal.repositories.ConversationRepository;
-import com.petcare.portal.repositories.UserRepository;
-import com.petcare.portal.services.ChatService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,19 +19,27 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import com.petcare.portal.dtos.ChatRequest;
+import com.petcare.portal.dtos.ChatResponse;
+import com.petcare.portal.entities.ChatMessage;
+import com.petcare.portal.entities.Conversation;
+import com.petcare.portal.entities.User;
+import com.petcare.portal.repositories.ChatMessageRepository;
+import com.petcare.portal.repositories.ConversationRepository;
+import com.petcare.portal.repositories.UserRepository;
+import com.petcare.portal.services.ChatService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
+
     private final ChatMessageRepository chatMessageRepository;
     private final ConversationRepository conversationRepository;
-    private final UserRepository customerRepository;
+    private final UserRepository userRepository;
     private final ChatClient chatClient;
     private final ResourceLoader resourceLoader;
     private final ModelMapper modelMapper;
@@ -51,13 +55,13 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public ChatResponse sendMessage(Long customerId, ChatRequest request) {
+    public ChatResponse sendMessage(Long userId, ChatRequest request) {
         try {
             // Tìm hoặc tạo conversation
-            Conversation conversation = findOrCreateConversation(customerId, request.getConversationId());
+            Conversation conversation = findOrCreateConversation(userId, request.getConversationId());
 
             // Tạo tin nhắn từ user
-            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), customerId);
+            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), userId);
             chatMessageRepository.save(userMessage);
 
             // Lấy số lượng tin nhắn để quyết định strategy
@@ -73,7 +77,8 @@ public class ChatServiceImpl implements ChatService {
                     .findByConversationOrderByTimestampDesc(conversation, pageable);
                 contextMessages = messagePage.getContent();
                 // Reverse để có thứ tự đúng
-                java.util.Collections.reverse(contextMessages);
+                contextMessages = new ArrayList<>(messagePage.getContent());
+                Collections.reverse(contextMessages);
             } else {
                 // Lấy tất cả messages khi chưa cần summary
                 contextMessages = chatMessageRepository.findByConversation(conversation);
@@ -98,7 +103,7 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // Lưu phản hồi từ AI
-            ChatMessage aiMessage = createAIMessage(conversation, aiResponse, customerId);
+            ChatMessage aiMessage = createAIMessage(conversation, aiResponse, userId);
             chatMessageRepository.save(aiMessage);
 
             return new ChatResponse(
@@ -145,21 +150,21 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public List<Long> getConversationsByCustomer(Long customerId) {
-        if (customerId == null) {
+    public List<Long> getConversationsByUser(Long userId) {
+        if (userId == null) {
             return new ArrayList<>();
         }
 
-        User customer = customerRepository.findById(customerId)
-            .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
-        List<Conversation> conversations = conversationRepository.findByCustomer(customer);
+        List<Conversation> conversations = conversationRepository.findByUser(user);
         return conversations.stream()
                 .map(Conversation::getId)
                 .collect(Collectors.toList());
     }
 
-    private Conversation findOrCreateConversation(Long customerId, Long conversationId) {
+    private Conversation findOrCreateConversation(Long userId, Long conversationId) {
         if (conversationId != null) {
             Optional<Conversation> existingConversation = conversationRepository.findById(conversationId);
             if (existingConversation.isPresent()) {
@@ -172,16 +177,16 @@ public class ChatServiceImpl implements ChatService {
         newConversation.setTitle("Cuộc trò chuyện mới");
         newConversation.setStartTime(LocalDateTime.now());
 
-        if (customerId != null) {
-            User customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
-            newConversation.setCustomer(customer);
+        if (userId != null) {
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+            newConversation.setUser(user);
         }
 
         return conversationRepository.save(newConversation);
     }
 
-    private ChatMessage createUserMessage(Conversation conversation, String message, Long customerId) {
+    private ChatMessage createUserMessage(Conversation conversation, String message, Long userId) {
         ChatMessage chatMessage = new ChatMessage();
         chatMessage.setConversation(conversation);
         chatMessage.setContent(message);
@@ -189,17 +194,17 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setIsFromAI(false);
         chatMessage.setTimestamp(LocalDateTime.now());
 
-        if (customerId != null) {
-            User customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
-            chatMessage.setCustomer(customer);
-            chatMessage.setSenderName(customer.getFirstName() + " " + customer.getLastName());
+        if (userId != null) {
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+            chatMessage.setUser(user);
+            chatMessage.setSenderName(user.getFirstName() + " " + user.getLastName());
         }
 
         return chatMessage;
     }
 
-    private ChatMessage createAIMessage(Conversation conversation, String message, Long customerId) {
+    private ChatMessage createAIMessage(Conversation conversation, String message, Long userId) {
         ChatMessage chatMessage = new ChatMessage();
         chatMessage.setConversation(conversation);
         chatMessage.setContent(message);
@@ -207,10 +212,10 @@ public class ChatServiceImpl implements ChatService {
         chatMessage.setIsFromAI(true);
         chatMessage.setTimestamp(LocalDateTime.now());
 
-        if (customerId != null) {
-            User customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
-            chatMessage.setCustomer(customer);
+        if (userId != null) {
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+            chatMessage.setUser(user);
         }
 
         return chatMessage;
