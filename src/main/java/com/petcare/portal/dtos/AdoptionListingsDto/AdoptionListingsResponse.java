@@ -12,11 +12,12 @@ public class AdoptionListingsResponse {
   private Long id;
   private String image;
   private String shelterId;
-  private String name;
+  private String petName;
   private String description;
   private String genderPet;
   private Breed breed;
   private Species species;
   private String status;
   private int age;
+  private String location;
 }

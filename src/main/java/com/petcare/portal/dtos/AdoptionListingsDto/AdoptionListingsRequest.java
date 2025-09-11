@@ -8,11 +8,12 @@ import lombok.Setter;
 public class AdoptionListingsRequest {
   private String image;
   private String shelterId;
-  private String name;
+  private String petName;
   private String description;
   private String genderPet;
   private Long breedId;
   private Long speciesId;
   private String status;
   private int age;
+  private String location;
 }
