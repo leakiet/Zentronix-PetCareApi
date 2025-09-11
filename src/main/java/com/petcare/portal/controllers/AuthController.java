@@ -18,10 +18,10 @@ import com.petcare.portal.dtos.RegisterRequest;
 import com.petcare.portal.dtos.RegisterResponse;
 import com.petcare.portal.dtos.ResetPasswordRequest;
 import com.petcare.portal.dtos.VerifyRequest;
-import com.petcare.portal.entities.Customer;
+import com.petcare.portal.entities.User;
 import com.petcare.portal.security.MyUserDetails;
 import com.petcare.portal.security.MyUserDetailService;
-import com.petcare.portal.services.CustomerService;
+import com.petcare.portal.services.UserService;
 import com.petcare.portal.services.EmployeeService;
 import com.petcare.portal.services.GoogleAuthService;
 import com.petcare.portal.security.JwtUtils;
@@ -41,7 +41,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/apis/v1/auth")
 public class AuthController {
   @Autowired
-  private CustomerService customerService;
+  private UserService userService;
 
   @Autowired
   private EmployeeService employeeService;
@@ -69,8 +69,8 @@ public class AuthController {
     } catch (Exception e) {
       throw new IllegalArgumentException("Username or password is incorrect");
     }
-    Customer customer = customerService.checkLogin(request.getEmail(), request.getPassword());
-    LoginResponse response = mapper.map(customer, LoginResponse.class);
+    User user = userService.checkLogin(request.getEmail(), request.getPassword());
+    LoginResponse response = mapper.map(user, LoginResponse.class);
     response.setToken(jwtUtils.generateJwtToken(authentication));
     response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
     response.setTokenType("Bearer");
@@ -133,12 +133,12 @@ public class AuthController {
 
   @PostMapping("/register")
   public ResponseEntity<RegisterResponse> registerCustomer(@Valid @RequestBody RegisterRequest registerRequest) {
-    Customer customer = mapper.map(registerRequest, Customer.class);
+    User user = mapper.map(registerRequest, User.class);
 
-    Customer registereddCustomer = customerService.registerCustomer(customer);
+    User registereddUser = userService.registerUser(user);
 
     RegisterResponse response = new RegisterResponse();
-    response.setEmail(registereddCustomer.getEmail());
+    response.setEmail(registereddUser.getEmail());
     response.setMessage("Register successfully");
 
     return ResponseEntity.ok(response);
@@ -147,26 +147,26 @@ public class AuthController {
   @PutMapping("/verify")
   public ResponseEntity<String> verifyAccount(@RequestBody VerifyRequest request) {
 
-    customerService.verifyEmail(request.getEmail(), request.getToken());
+    userService.verifyEmail(request.getEmail(), request.getToken());
 
     return ResponseEntity.ok("Email verified successfully");
   }
 
   @PutMapping("/resend-verifyEmail")
   public ResponseEntity<String> resendVerifyEmail(@RequestBody EmailRequest request) {
-    customerService.resendVerifyEmail(request.getEmail());
+    userService.resendVerifyEmail(request.getEmail());
     return ResponseEntity.ok("Verification email resent!");
   }
 
   @PostMapping("/sendOtpCode")
   public ResponseEntity<String> sendOtpCode(@RequestBody EmailRequest request) {
-    customerService.sendOtpCode(request.getEmail());
+    userService.sendOtpCode(request.getEmail());
     return ResponseEntity.ok("OTP code sent successfully");
   }
 
   @PostMapping("/verifyOtpCode")
   public ResponseEntity<String> verifyOtpCode(@RequestBody VerifyRequest request) {
-    boolean isValid = customerService.verifyOtpCode(request.getEmail(), request.getToken());
+    boolean isValid = userService.verifyOtpCode(request.getEmail(), request.getToken());
     if (!isValid) {
       throw new IllegalArgumentException("Invalid or expired OTP code");
     }
@@ -177,7 +177,7 @@ public class AuthController {
   @PostMapping("/resetPassword")
   public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {  
 
-    customerService.resetPassword(request.getEmail(), request.getPassword());
+    userService.resetPassword(request.getEmail(), request.getPassword());
     
     return ResponseEntity.ok("Password reset successfully. Please login with your new password.");
   }
@@ -186,10 +186,10 @@ public class AuthController {
   public ResponseEntity<LoginResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
     try {
       // Authenticate user với Google
-      Customer customer = googleAuthService.authenticateGoogleUser(request.getIdToken());
+      User user = googleAuthService.authenticateGoogleUser(request.getIdToken());
       
-      // Tạo MyUserDetails object cho customer
-      MyUserDetails userDetails = new MyUserDetails(customer);
+      // Tạo MyUserDetails object cho user
+      MyUserDetails userDetails = new MyUserDetails(user);
       
       // Generate JWT token
       Authentication authentication = new UsernamePasswordAuthenticationToken(
@@ -197,7 +197,7 @@ public class AuthController {
       String jwt = jwtUtils.generateJwtToken(authentication);
       
       // Return response giống như login thường
-      LoginResponse response = mapper.map(customer, LoginResponse.class);
+      LoginResponse response = mapper.map(user, LoginResponse.class);
       response.setToken(jwt);
       response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
       response.setTokenType("Bearer");

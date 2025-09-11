@@ -31,9 +31,9 @@ public class Pet extends AbstractEntity {
     @ManyToOne
     @JoinColumn(name = "owner_id", nullable = false)
     @JsonBackReference
-    private Customer owner;
+    private User owner;
 
-    private String name;
+    private String petName;
     private String species;
     private String breed;
     private String image;

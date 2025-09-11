@@ -13,10 +13,10 @@ import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
 import com.petcare.portal.entities.ChatMessage;
 import com.petcare.portal.entities.Conversation;
-import com.petcare.portal.entities.Customer;
+import com.petcare.portal.entities.User;
 import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
-import com.petcare.portal.repositories.CustomerRepository;
+import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.ChatService;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -30,7 +30,7 @@ public class ChatServiceImpl implements ChatService {
 	private final ChatClient chatClient;
 	private final ChatMessageRepository chatMessageRepo;
 	private final ConversationRepository conversationRepo;
-	private final CustomerRepository customerRepo;
+	private final UserRepository customerRepo;
 	private final ModelMapper mapper;
 
 	@Override
@@ -45,7 +45,7 @@ public class ChatServiceImpl implements ChatService {
 		}
 
 		// ---- LOGGED IN ----
-		Customer customer = customerRepo.findById(customerId)
+		User customer = customerRepo.findById(customerId)
 				.orElseThrow(() -> new EntityNotFoundException("Customer not found"));
 
 		Conversation conv = resolveConversation(customer, request.getConversationId());
@@ -72,7 +72,7 @@ public class ChatServiceImpl implements ChatService {
 
 	@Override
 	public List<Long> getConversationsByCustomer(Long customerId) {
-		Customer c = customerRepo.findById(customerId)
+		User c = customerRepo.findById(customerId)
 				.orElseThrow(() -> new EntityNotFoundException("Customer not found"));
 		return conversationRepo.findByCustomer(c).stream().map(Conversation::getId).toList();
 	}
@@ -91,7 +91,7 @@ public class ChatServiceImpl implements ChatService {
 			        .call()
 			        .content();	}
 
-	private Conversation resolveConversation(Customer customer, Long convId) {
+	private Conversation resolveConversation(User customer, Long convId) {
 		if (convId != null) {
 			Conversation conv = conversationRepo.findById(convId)
 					.orElseThrow(() -> new EntityNotFoundException("Conversation not found"));

@@ -9,7 +9,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 
-import com.petcare.portal.entities.Customer;
+import com.petcare.portal.entities.User;
 import com.petcare.portal.entities.Employee;
 
 public class MyUserDetails implements UserDetails {
@@ -19,11 +19,11 @@ public class MyUserDetails implements UserDetails {
 	private static final String TYPE_CUSTOMER = "CUSTOMER";
 	private static final String TYPE_EMPLOYEE = "EMPLOYEE";
 	
-	private Customer customer;
+	private User customer;
 	private Employee employee;
 	private String userType;
 
-	public MyUserDetails(Customer customer) {
+	public MyUserDetails(User customer) {
 		this.customer = customer;
 		this.userType = TYPE_CUSTOMER;
 	}
@@ -70,7 +70,7 @@ public class MyUserDetails implements UserDetails {
 		return roles;
 	}
 
-	public Customer getCustomer() {
+	public User getCustomer() {
 		return customer;
 	}
 

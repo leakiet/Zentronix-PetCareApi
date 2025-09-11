@@ -30,8 +30,8 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "customers")
-public class Customer extends AbstractEntity {
+@Table(name = "users")
+public class User extends AbstractEntity {
 
 	private String firstName;
 

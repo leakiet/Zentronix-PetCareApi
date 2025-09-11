@@ -1,8 +1,8 @@
 package com.petcare.portal.services;
 
-import com.petcare.portal.entities.Customer;
+import com.petcare.portal.entities.User;
 
 public interface GoogleAuthService {
-    Customer authenticateGoogleUser(String idToken);
+    User authenticateGoogleUser(String idToken);
     boolean verifyGoogleToken(String idToken);
 }

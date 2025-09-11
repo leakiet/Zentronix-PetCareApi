@@ -27,7 +27,7 @@ public class HealthRecord extends AbstractEntity {
   @ManyToOne
   @JoinColumn(name = "vet_id", nullable = false)
   @JsonBackReference
-  private Customer vet;
+  private User vet;
 
   private DateTime visitDate;
 

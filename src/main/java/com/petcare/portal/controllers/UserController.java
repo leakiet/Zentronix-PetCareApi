@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.petcare.portal.entities.Customer;
-import com.petcare.portal.services.CustomerService;
+import com.petcare.portal.entities.User;
+import com.petcare.portal.services.UserService;
 
 import org.springframework.web.bind.annotation.PutMapping;
 
@@ -22,26 +22,26 @@ import java.util.stream.Collectors;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/apis/v1/customers")
-public class CustomerController {
+@RequestMapping("/apis/v1/users")
+public class UserController {
 
   @Autowired
-  private CustomerService customerService;
+  private UserService userService;
 
   @Autowired
   private ModelMapper modelMapper;
 
 
   @GetMapping("/email/{email}")
-  public ResponseEntity<Customer> getCustomerByEmail(@PathVariable("email") String email) {
+  public ResponseEntity<User> getCustomerByEmail(@PathVariable("email") String email) {
     try {
-      Customer customer = customerService.findByEmail(email);
+      User user = userService.findByEmail(email);
 
-      if (customer == null) {
+      if (user == null) {
         return ResponseEntity.notFound().build();
       }
 
-      return ResponseEntity.ok(customer);
+      return ResponseEntity.ok(user);
     } catch (Exception e) {
       return ResponseEntity.badRequest().build();
     }
