@@ -23,7 +23,6 @@ public class ChatController {
     private final ChatService chatService;
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final com.petcare.portal.controllers.WebSocketController webSocketController;
 
     /**
      * Endpoint để gửi tin nhắn đến AI.
@@ -118,28 +117,26 @@ public class ChatController {
     }
 
     /**
-     * Endpoint để simulate typing indicator (cho testing)
+     * Handle typing status updates
      */
-    @PostMapping("/typing/{conversationId}")
-    public ResponseEntity<Map<String, Object>> simulateTyping(@PathVariable Long conversationId) {
-        try {
-            // Send typing start via WebSocket
-            webSocketController.sendConversationStatus(conversationId, "AI_PROCESSING");
+    @PostMapping("/typing")
+    public ResponseEntity<Map<String, Object>> updateTypingStatus(
+            @RequestParam Long conversationId,
+            @RequestParam String clientId,
+            @RequestParam Boolean isTyping,
+            @RequestParam(required = false) Long customerId) {
 
+        try {
             Map<String, Object> result = new HashMap<>();
             result.put("conversationId", conversationId);
-            result.put("status", "TYPING");
-            result.put("message", "AI is typing...");
+            result.put("clientId", clientId);
+            result.put("isTyping", isTyping);
+            result.put("timestamp", java.time.LocalDateTime.now());
 
-            // Simulate typing delay and completion
-            new Thread(() -> {
-                try {
-                    Thread.sleep(3000); // 3 seconds typing simulation
-                    webSocketController.sendConversationStatus(conversationId, "COMPLETED");
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }).start();
+            if (isTyping) {
+                result.put("message", "AI đang tư vấn về thú cưng của bạn...");
+                result.put("typingMessage", getTypingMessageForContext(conversationId));
+            }
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -150,15 +147,166 @@ public class ChatController {
     }
 
     /**
-     * Test endpoint cho typing indicator
+     * Get typing status for a conversation
      */
-    @GetMapping("/test-typing/{conversationId}")
-    public ResponseEntity<Map<String, Object>> testTyping(@PathVariable Long conversationId) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("conversationId", conversationId);
-        result.put("message", "Typing indicator test endpoint");
-        result.put("instructions", "Use POST /typing/{id} to simulate AI typing");
+    @GetMapping("/typing/{conversationId}")
+    public ResponseEntity<Map<String, Object>> getTypingStatus(@PathVariable Long conversationId) {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            result.put("conversationId", conversationId);
+            result.put("isTyping", false); // For now, return false as we don't track real-time typing
+            result.put("typingMessage", null);
+            result.put("timestamp", java.time.LocalDateTime.now());
 
-        return ResponseEntity.ok(result);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            Map<String, Object> errorInfo = new HashMap<>();
+            errorInfo.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(errorInfo);
+        }
+    }
+
+    /**
+     * Get appropriate typing message based on conversation context
+     */
+    private String getTypingMessageForContext(Long conversationId) {
+        try {
+            // Get recent messages to understand context
+            var messages = chatMessageRepository.findByConversation(
+                conversationRepository.findById(conversationId).orElse(null));
+
+            if (messages.isEmpty()) {
+                return "AI đang chuẩn bị tư vấn...";
+            }
+
+            String lastMessage = messages.get(messages.size() - 1).getContent().toLowerCase();
+
+            // Determine typing message based on content
+            if (lastMessage.contains("bệnh") || lastMessage.contains("ốm") || lastMessage.contains("triệu chứng")) {
+                return "AI đang phân tích triệu chứng và chuẩn bị tư vấn...";
+            } else if (lastMessage.contains("thuốc") || lastMessage.contains("liệu trình")) {
+                return "AI đang nghiên cứu phương pháp điều trị phù hợp...";
+            } else if (lastMessage.contains("ăn") || lastMessage.contains("uống") || lastMessage.contains("dinh dưỡng")) {
+                return "AI đang tư vấn về chế độ dinh dưỡng cho thú cưng...";
+            } else if (lastMessage.contains("huấn luyện") || lastMessage.contains("hành vi")) {
+                return "AI đang chuẩn bị lời khuyên về huấn luyện thú cưng...";
+            } else {
+                return "AI đang tư vấn về chăm sóc thú cưng của bạn...";
+            }
+
+        } catch (Exception e) {
+            return "AI đang xử lý câu hỏi của bạn...";
+        }
+    }
+
+    /**
+     * Simulate different typing indicator approaches
+     */
+    @GetMapping("/demo-typing/{approach}")
+    public ResponseEntity<Map<String, Object>> demoTypingIndicator(@PathVariable String approach) {
+        Map<String, Object> demo = new HashMap<>();
+
+        switch (approach.toLowerCase()) {
+            case "simple":
+                demo.put("approach", "Simple Status Field");
+                demo.put("description", "Thêm field status vào ChatResponse");
+                demo.put("pros", List.of("Dễ implement", "Không cần WebSocket", "Backward compatible"));
+                demo.put("cons", List.of("Không real-time", "Phụ thuộc vào polling", "Lag khi update"));
+                demo.put("useCase", "Basic chat apps, không cần real-time");
+                break;
+
+            case "websocket":
+                demo.put("approach", "WebSocket Events");
+                demo.put("description", "Gửi typing events qua WebSocket");
+                demo.put("pros", List.of("Real-time", "Responsive", "Scalable"));
+                demo.put("cons", List.of("Phức tạp setup", "Cần WebSocket server", "Network overhead"));
+                demo.put("useCase", "Real-time chat apps, gaming, collaboration tools");
+                break;
+
+            case "polling":
+                demo.put("approach", "HTTP Polling");
+                demo.put("description", "Client poll server định kỳ để check typing status");
+                demo.put("pros", List.of("Dễ implement", "Không cần WebSocket", "Reliable"));
+                demo.put("cons", List.of("Network overhead", "Lag", "Server load"));
+                demo.put("useCase", "Simple apps, low-frequency updates");
+                break;
+
+            case "sse":
+                demo.put("approach", "Server-Sent Events (SSE)");
+                demo.put("description", "Server push events to client");
+                demo.put("pros", List.of("Real-time", "Simple setup", "Low latency"));
+                demo.put("cons", List.of("One-way communication", "Browser support", "Connection limits"));
+                demo.put("useCase", "Notifications, live updates, typing indicators");
+                break;
+
+            case "current":
+                demo.put("approach", "Current Implementation");
+                demo.put("description", "Status field + simulated typing");
+                demo.put("status", Map.of(
+                    "isTyping", true,
+                    "typingMessage", "AI đang tư vấn về triệu chứng của thú cưng...",
+                    "conversationStatus", "AI"
+                ));
+                demo.put("pros", List.of("Dễ test", "UX tốt", "Backward compatible"));
+                demo.put("cons", List.of("Không real-time", "Simulated delay"));
+                break;
+
+            default:
+                demo.put("error", "Approach not found. Available: simple, websocket, polling, sse, current");
+        }
+
+        return ResponseEntity.ok(demo);
+    }
+
+    /**
+     * Test markdown cleaning functionality
+     */
+    @PostMapping("/test-markdown-clean")
+    public ResponseEntity<Map<String, Object>> testMarkdownClean(@RequestBody Map<String, String> request) {
+        try {
+            String markdownText = request.get("text");
+            if (markdownText == null) {
+                markdownText = """
+                    # Header Example
+
+                    Đây là **text in đậm** và *text in nghiêng*.
+
+                    ## Danh sách:
+                    1. Item số 1
+                    2. Item số 2
+                    - Bullet point 1
+                    - Bullet point 2
+
+                    ### Code:
+                    `inline code` và ```code block```
+
+                    [Link example](https://example.com)
+
+                    ---
+                    """;
+            }
+
+            if (!(chatService instanceof ChatServiceImpl)) {
+                throw new IllegalStateException("ChatService is not ChatServiceImpl");
+            }
+
+            ChatServiceImpl chatServiceImpl = (ChatServiceImpl) chatService;
+            String cleanedText = chatServiceImpl.cleanMarkdownForTesting(markdownText);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("original", markdownText);
+            result.put("cleaned", cleanedText);
+            result.put("originalLength", markdownText.length());
+            result.put("cleanedLength", cleanedText.length());
+            result.put("success", true);
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            Map<String, Object> errorInfo = new HashMap<>();
+            errorInfo.put("error", e.getMessage());
+            errorInfo.put("success", false);
+            return ResponseEntity.badRequest().body(errorInfo);
+        }
     }
 }

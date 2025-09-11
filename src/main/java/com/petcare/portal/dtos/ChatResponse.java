@@ -2,7 +2,6 @@
 package com.petcare.portal.dtos;
 
 import lombok.*;
-
 import java.time.LocalDateTime;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
@@ -12,29 +11,13 @@ public class ChatResponse {
     private String  message;
     private Boolean isFromAI;
 
-    // Typing indicator status
-    private String  status;  // "TYPING", "SENDING", "SENT", "ERROR"
+    // Status fields for typing indicator
+    private String  status;          // "SENT", "TYPING", "COMPLETED", "ERROR"
+    private Long    messageId;       // ID của message trong DB
+    private LocalDateTime timestamp; // Thời gian gửi
+    private String  conversationStatus; // "AI", "EMP", "WAITING_EMP"
 
-    // Timestamp
-    private LocalDateTime timestamp;
-
-    // Constructor tiện lợi
-    public ChatResponse(Long conversationId, String sender, String message, Boolean isFromAI) {
-        this.conversationId = conversationId;
-        this.sender = sender;
-        this.message = message;
-        this.isFromAI = isFromAI;
-        this.status = "SENT";
-        this.timestamp = LocalDateTime.now();
-    }
-
-    // Constructor cho typing indicator
-    public ChatResponse(Long conversationId, String status) {
-        this.conversationId = conversationId;
-        this.status = status;
-        this.timestamp = LocalDateTime.now();
-        this.isFromAI = true;
-        this.sender = "PetCare AI";
-        this.message = "";
-    }
+    // Typing indicator specific
+    private Boolean isTyping;        // true khi AI đang trả lời
+    private String  typingMessage;   // "AI đang tư vấn về triệu chứng của thú cưng..."
 }

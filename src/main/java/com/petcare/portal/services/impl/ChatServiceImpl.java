@@ -5,7 +5,6 @@ import com.petcare.portal.dtos.ChatResponse;
 import com.petcare.portal.entities.ChatMessage;
 import com.petcare.portal.entities.Conversation;
 import com.petcare.portal.entities.Customer;
-import com.petcare.portal.controllers.WebSocketController;
 import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
 import com.petcare.portal.repositories.CustomerRepository;
@@ -41,7 +40,6 @@ public class ChatServiceImpl implements ChatService {
     private final ChatClient chatClient;
     private final ResourceLoader resourceLoader;
     private final ModelMapper modelMapper;
-    private final WebSocketController webSocketController;
 
     @Value("${petcare.ai.max-messages-before-summary:20}")
     private int maxMessagesBeforeSummary;
@@ -62,14 +60,6 @@ public class ChatServiceImpl implements ChatService {
             // Tạo tin nhắn từ user
             ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), customerId);
             chatMessageRepository.save(userMessage);
-
-            // Send user message via WebSocket
-            ChatResponse userResponse = convertToChatResponse(userMessage);
-            webSocketController.sendMessageUpdate(conversation.getId(), userResponse);
-
-            // Send AI typing indicator
-            log.info("AI started processing message for conversation: {}", conversation.getId());
-            webSocketController.sendConversationStatus(conversation.getId(), "AI_PROCESSING");
 
             // Lấy số lượng tin nhắn để quyết định strategy
             long messageCount = chatMessageRepository.countByConversation(conversation);
@@ -112,16 +102,18 @@ public class ChatServiceImpl implements ChatService {
             ChatMessage aiMessage = createAIMessage(conversation, aiResponse, customerId);
             chatMessageRepository.save(aiMessage);
 
-            // Send AI response via WebSocket
-            ChatResponse aiResponseObj = convertToChatResponse(aiMessage);
-            webSocketController.sendMessageUpdate(conversation.getId(), aiResponseObj);
-
-            // Send completion status
-            webSocketController.sendConversationStatus(conversation.getId(), "COMPLETED");
-
-            log.info("AI completed processing for conversation: {}", conversation.getId());
-
-            return aiResponseObj;
+            return new ChatResponse(
+                conversation.getId(),
+                "PetCare AI",
+                aiResponse,
+                true,
+                "COMPLETED", // status
+                aiMessage.getId(), // messageId
+                aiMessage.getTimestamp(), // timestamp
+                "AI", // conversationStatus
+                false, // isTyping
+                null // typingMessage
+            );
 
         } catch (Exception e) {
             log.error("Error processing chat message", e);
@@ -130,8 +122,12 @@ public class ChatServiceImpl implements ChatService {
                 "PetCare AI",
                 "Xin lỗi, có lỗi xảy ra khi xử lý tin nhắn của bạn. Vui lòng thử lại sau.",
                 true,
-                "ERROR",
-                LocalDateTime.now()
+                "ERROR", // status
+                null, // messageId
+                LocalDateTime.now(), // timestamp
+                "AI", // conversationStatus
+                false, // isTyping
+                null // typingMessage
             );
         }
     }
@@ -234,22 +230,23 @@ public class ChatServiceImpl implements ChatService {
                 promptBuilder.append(sender).append(msg.getContent()).append("\n");
             }
 
-            // Enhanced summary prompt
+            // Enhanced summary prompt - NO MARKDOWN
             String summaryPrompt = """
                 Nhiệm vụ: Tóm tắt cuộc trò chuyện về chăm sóc thú cưng một cách CHI TIẾT và HỮU ÍCH.
 
                 Yêu cầu tóm tắt PHẢI bao gồm:
-                1. **Thông tin thú cưng**: Loài, tuổi, giống, triệu chứng (nếu có)
-                2. **Vấn đề chính**: Những vấn đề đã được thảo luận
-                3. **Lời khuyên đã đưa ra**: Các giải pháp và hướng dẫn cụ thể
-                4. **Trạng thái hiện tại**: Tình hình sức khỏe sau các lời khuyên
-                5. **Hành động tiếp theo**: Những gì cần làm tiếp theo
+                1. Thông tin thú cưng: Loài, tuổi, giống, triệu chứng (nếu có)
+                2. Vấn đề chính: Những vấn đề đã được thảo luận
+                3. Lời khuyên đã đưa ra: Các giải pháp và hướng dẫn cụ thể
+                4. Trạng thái hiện tại: Tình hình sức khỏe sau các lời khuyên
+                5. Hành động tiếp theo: Những gì cần làm tiếp theo
 
                 Hướng dẫn:
                 - Giữ lại thông tin quan trọng, loại bỏ phần lặp lại
                 - Tập trung vào vấn đề sức khỏe và giải pháp
                 - Viết bằng tiếng Việt, rõ ràng, logic
                 - Độ dài: 200-400 từ
+                - KHÔNG sử dụng markdown formatting (không dùng *, **, -, 1. 2. 3., etc.)
 
                 Tóm tắt:
                 """;
@@ -304,7 +301,12 @@ public class ChatServiceImpl implements ChatService {
                 .content();
 
             log.debug("Generated response length: {}", response.length());
-            return response;
+
+            // Clean markdown from AI response
+            String cleanedResponse = cleanMarkdown(response);
+            log.debug("Cleaned response length: {}", cleanedResponse.length());
+
+            return cleanedResponse;
 
         } catch (Exception e) {
             log.error("Error generating AI response with summary", e);
@@ -334,7 +336,12 @@ public class ChatServiceImpl implements ChatService {
                 .content();
 
             log.debug("Generated response length: {}", response.length());
-            return response;
+
+            // Clean markdown from AI response
+            String cleanedResponse = cleanMarkdown(response);
+            log.debug("Cleaned response length: {}", cleanedResponse.length());
+
+            return cleanedResponse;
 
         } catch (Exception e) {
             log.error("Error generating AI response", e);
@@ -378,8 +385,12 @@ public class ChatServiceImpl implements ChatService {
     private ChatResponse convertToChatResponse(ChatMessage message) {
         ChatResponse response = modelMapper.map(message, ChatResponse.class);
         response.setConversationId(message.getConversation().getId());
+        response.setMessageId(message.getId());
+        response.setTimestamp(message.getTimestamp());
         response.setStatus("SENT");
-        response.setTimestamp(message.getTimestamp() != null ? message.getTimestamp() : LocalDateTime.now());
+        response.setConversationStatus("AI");
+        response.setIsTyping(false);
+        response.setTypingMessage(null);
         return response;
     }
 
@@ -390,8 +401,12 @@ public class ChatServiceImpl implements ChatService {
             message.getSenderName(),
             message.getContent(),
             message.getIsFromAI(),
-            "SENT",
-            message.getTimestamp() != null ? message.getTimestamp() : LocalDateTime.now()
+            "SENT", // status
+            message.getId(), // messageId
+            message.getTimestamp(), // timestamp
+            "AI", // conversationStatus
+            false, // isTyping
+            null // typingMessage
         );
     }
 
@@ -445,6 +460,63 @@ public class ChatServiceImpl implements ChatService {
         }
     }
 
+    /**
+     * Public method to test markdown cleaning (for testing purposes)
+     */
+    public String cleanMarkdownForTesting(String text) {
+        return cleanMarkdown(text);
+    }
+
+    /**
+     * Clean markdown formatting from AI response
+     */
+    private String cleanMarkdown(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+
+        try {
+            // Remove bold/italic markdown
+            text = text.replaceAll("\\*\\*(.*?)\\*\\*", "$1"); // **bold**
+            text = text.replaceAll("\\*(.*?)\\*", "$1");       // *italic*
+            text = text.replaceAll("__(.*?)__", "$1");         // __underline__
+            text = text.replaceAll("_(.*?)_", "$1");           // _italic_
+
+            // Remove headers
+            text = text.replaceAll("^#{1,6}\\s+", "");         // # ## ### headers
+            text = text.replaceAll("\n#{1,6}\\s+", "\n");      // headers on new lines
+
+            // Remove code blocks
+            text = text.replaceAll("```[\\s\\S]*?```", "");    // ```code blocks```
+            text = text.replaceAll("`([^`]*)`", "$1");         // `inline code`
+
+            // Remove links but keep text
+            text = text.replaceAll("\\[([^\\]]+)\\]\\([^\\)]+\\)", "$1"); // [text](url)
+
+            // Clean up excessive newlines
+            text = text.replaceAll("\n{3,}", "\n\n");          // max 2 consecutive newlines
+
+            // Remove list markers but keep content
+            text = text.replaceAll("^[-*+]\\s+", "• ");        // unordered lists
+            text = text.replaceAll("^\\d+\\.\\s+", "");        // ordered lists
+
+            // Remove horizontal rules
+            text = text.replaceAll("^[-*_]{3,}$", "");         // --- or *** or ___
+
+            // Clean up extra whitespace
+            text = text.trim();
+            text = text.replaceAll("\\s+", " ");              // multiple spaces to single
+            text = text.replaceAll("\\s*\n\\s*", "\n");       // clean line breaks
+
+            log.debug("Markdown cleaned successfully");
+            return text;
+
+        } catch (Exception e) {
+            log.error("Error cleaning markdown", e);
+            return text; // Return original text if cleaning fails
+        }
+    }
+
     private String loadSystemPrompt() {
         try {
             Resource resource = resourceLoader.getResource(systemPromptPath);
@@ -485,6 +557,11 @@ public class ChatServiceImpl implements ChatService {
             - Đưa ra lời khuyên thực tế và khả thi
             - Khuyến khích sự tương tác tích cực với thú cưng
             - Hướng dẫn chủ nuôi nhận biết dấu hiệu bất thường
+
+            Định dạng văn bản:
+            - KHÔNG sử dụng markdown formatting (**bold**, *italic*, headers, lists, etc.)
+            - Sử dụng plain text thuần túy để dễ đọc trên chat apps
+            - Viết tự nhiên như đang trò chuyện với chủ nuôi
             """;
     }
 }
