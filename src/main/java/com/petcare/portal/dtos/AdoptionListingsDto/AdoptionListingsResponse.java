@@ -1,7 +1,6 @@
 package com.petcare.portal.dtos.AdoptionListingsDto;
 
 import com.petcare.portal.entities.Breed;
-import com.petcare.portal.entities.Species;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -16,8 +15,8 @@ public class AdoptionListingsResponse {
   private String description;
   private String gender;
   private Breed breed;
-  private Species species;
+  private String species;
   private String status;
+  private String adoptionStatus;
   private int age;
-  private String location;
 }

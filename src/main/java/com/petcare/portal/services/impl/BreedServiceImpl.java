@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.petcare.portal.dtos.BreedDto.BreedRequest;
 import com.petcare.portal.dtos.BreedDto.BreedResponse;
 import com.petcare.portal.entities.Breed;
+import com.petcare.portal.enums.Species;
 import com.petcare.portal.repositories.BreedRepository;
 import com.petcare.portal.services.BreedService;
 
@@ -25,6 +26,7 @@ public class BreedServiceImpl implements BreedService {
       BreedResponse response = new BreedResponse();
       response.setId(breed.getId());
       response.setName(breed.getName());
+      response.setSpecies(breed.getSpecies().name());
       return response;
     } catch (Exception e) {
       throw new RuntimeException("Error retrieving breed", e);
@@ -36,10 +38,12 @@ public class BreedServiceImpl implements BreedService {
     try {
       Breed breed = new Breed();
       breed.setName(breedRequest.getName());
+      breed.setSpecies(Species.valueOf(breedRequest.getSpecies()));
       Breed savedBreed = breedRepository.save(breed);
       BreedResponse response = new BreedResponse();
       response.setId(savedBreed.getId());
       response.setName(savedBreed.getName());
+      response.setSpecies(savedBreed.getSpecies().name());
       return response;
     } catch (Exception e) {
       throw new RuntimeException("Error creating breed", e);
@@ -51,10 +55,12 @@ public class BreedServiceImpl implements BreedService {
     try {
       Breed breed = breedRepository.findById(id).orElseThrow(() -> new RuntimeException("Breed not found"));
       breed.setName(breedRequest.getName());
+      breed.setSpecies(Species.valueOf(breedRequest.getSpecies()));
       Breed updatedBreed = breedRepository.save(breed);
       BreedResponse response = new BreedResponse();
       response.setId(updatedBreed.getId());
       response.setName(updatedBreed.getName());
+      response.setSpecies(updatedBreed.getSpecies().name());
       return response;
     } catch (Exception e) {
       throw new RuntimeException("Error updating breed", e);
@@ -70,6 +76,7 @@ public class BreedServiceImpl implements BreedService {
             BreedResponse response = new BreedResponse();
             response.setId(breed.getId());
             response.setName(breed.getName());
+            response.setSpecies(breed.getSpecies().name());
             return response;
           })
           .collect(Collectors.toList());
@@ -89,5 +96,4 @@ public class BreedServiceImpl implements BreedService {
       throw new RuntimeException("Error deleting breed", e);
     }
   }
-  
 }

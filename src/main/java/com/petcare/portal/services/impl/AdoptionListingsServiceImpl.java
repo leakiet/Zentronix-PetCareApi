@@ -11,13 +11,13 @@ import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsRequest;
 import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.entities.AdoptionListing;
 import com.petcare.portal.entities.Breed;
-import com.petcare.portal.entities.Species;
 import com.petcare.portal.entities.User;
 import com.petcare.portal.enums.AdoptionStatus;
 import com.petcare.portal.enums.Gender;
+import com.petcare.portal.enums.PetHealthStatus;
+import com.petcare.portal.enums.Species;
 import com.petcare.portal.repositories.AdoptionListingsRepository;
 import com.petcare.portal.repositories.BreedRepository;
-import com.petcare.portal.repositories.SpeciesRepository;
 import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.AdoptionListingsService;
 
@@ -29,9 +29,6 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
 
   @Autowired
   private BreedRepository breedRepository;
-
-  @Autowired
-  private SpeciesRepository speciesRepository;
 
   @Autowired
   private UserRepository userRepository;
@@ -62,14 +59,13 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
       adoptionListing.setAge(adoptionListingsRequest.getAge());
       adoptionListing.setGender(Gender.valueOf(adoptionListingsRequest.getGender()));
       adoptionListing.setImage(adoptionListingsRequest.getImage());
-      adoptionListing.setDescription(adoptionListingsRequest.getDescription());
-      adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getStatus()));
+      adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getAdoptionStatus()));
+      adoptionListing.setStatus(PetHealthStatus.valueOf(adoptionListingsRequest.getStatus()));
       User user = userRepository.findById(Long.valueOf(adoptionListingsRequest.getShelterId())).orElseThrow(() -> new RuntimeException("User not found"));
       adoptionListing.setShelter(user);
       Breed breed = breedRepository.findById(adoptionListingsRequest.getBreedId()).orElseThrow(() -> new RuntimeException("Breed not found"));
       adoptionListing.setBreed(breed);
-      Species species = speciesRepository.findById(adoptionListingsRequest.getSpeciesId()).orElseThrow(() -> new RuntimeException("Species not found"));
-      adoptionListing.setSpecies(species);
+      adoptionListing.setSpecies(Species.valueOf(adoptionListingsRequest.getSpecies()));
       AdoptionListing savedAdoptionListing = adoptionListingsRepository.save(adoptionListing);
       modelMapper.typeMap(AdoptionListing.class, AdoptionListingsResponse.class).addMappings(mapper -> {
         mapper.map(src -> src.getShelter().getId().toString(), AdoptionListingsResponse::setShelterId);
@@ -90,14 +86,11 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
       adoptionListing.setAge(adoptionListingsRequest.getAge());
       adoptionListing.setGender(Gender.valueOf(adoptionListingsRequest.getGender()));
       adoptionListing.setImage(adoptionListingsRequest.getImage());
-      adoptionListing.setDescription(adoptionListingsRequest.getDescription());
       adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getStatus()));
       User user = userRepository.findById(Long.valueOf(adoptionListingsRequest.getShelterId())).orElseThrow(() -> new RuntimeException("User not found"));
       adoptionListing.setShelter(user);
       Breed breed = breedRepository.findById(adoptionListingsRequest.getBreedId()).orElseThrow(() -> new RuntimeException("Breed not found"));
       adoptionListing.setBreed(breed);
-      Species species = speciesRepository.findById(adoptionListingsRequest.getSpeciesId()).orElseThrow(() -> new RuntimeException("Species not found"));
-      adoptionListing.setSpecies(species);
       AdoptionListing updatedAdoptionListing = adoptionListingsRepository.save(adoptionListing);
       modelMapper.typeMap(AdoptionListing.class, AdoptionListingsResponse.class).addMappings(mapper -> {
         mapper.map(src -> src.getShelter().getId().toString(), AdoptionListingsResponse::setShelterId);

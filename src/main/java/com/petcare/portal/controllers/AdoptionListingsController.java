@@ -20,11 +20,8 @@ import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsRequest;
 import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.dtos.BreedDto.BreedRequest;
 import com.petcare.portal.dtos.BreedDto.BreedResponse;
-import com.petcare.portal.dtos.SpeciesDto.SpeciesRequest;
-import com.petcare.portal.dtos.SpeciesDto.SpeciesResponse;
 import com.petcare.portal.services.AdoptionListingsService;
 import com.petcare.portal.services.BreedService;
-import com.petcare.portal.services.SpeciesService;
 import com.petcare.portal.utils.ImageUtils;
 
 @RestController
@@ -34,8 +31,6 @@ public class AdoptionListingsController {
   @Autowired
   private AdoptionListingsService adoptionListingsService;
 
-  @Autowired
-  private SpeciesService speciesService;
 
   @Autowired
   private BreedService breedService;
@@ -123,55 +118,55 @@ public class AdoptionListingsController {
     }
   }
 
-  @GetMapping("/species/{id}")
-  public ResponseEntity<SpeciesResponse> getSpeciesById(@PathVariable("id") Long id) {
-    try {
-      SpeciesResponse response = speciesService.getSpeciesById(id);
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      return ResponseEntity.status(500).body(null);
-    }
-  }
+  // @GetMapping("/species/{id}")
+  // public ResponseEntity<SpeciesResponse> getSpeciesById(@PathVariable("id") Long id) {
+  //   try {
+  //     SpeciesResponse response = speciesService.getSpeciesById(id);
+  //     return ResponseEntity.ok(response);
+  //   } catch (Exception e) {
+  //     return ResponseEntity.status(500).body(null);
+  //   }
+  // }
 
-  @PostMapping("/species")
-  public ResponseEntity<SpeciesResponse> createSpecies(@RequestBody SpeciesRequest request) {
-    try {
-      SpeciesResponse response = speciesService.createSpecies(request);
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      return ResponseEntity.status(500).body(null);
-    }
-  }
+  // @PostMapping("/species")
+  // public ResponseEntity<SpeciesResponse> createSpecies(@RequestBody SpeciesRequest request) {
+  //   try {
+  //     SpeciesResponse response = speciesService.createSpecies(request);
+  //     return ResponseEntity.ok(response);
+  //   } catch (Exception e) {
+  //     return ResponseEntity.status(500).body(null);
+  //   }
+  // }
 
-  @PutMapping("/species/{id}")
-  public ResponseEntity<SpeciesResponse> updateSpecies(@PathVariable("id") Long id, @RequestBody SpeciesRequest request) {
-    try {
-      SpeciesResponse response = speciesService.updateSpecies(id, request);
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      return ResponseEntity.status(500).body(null);
-    }
-  }
+  // @PutMapping("/species/{id}")
+  // public ResponseEntity<SpeciesResponse> updateSpecies(@PathVariable("id") Long id, @RequestBody SpeciesRequest request) {
+  //   try {
+  //     SpeciesResponse response = speciesService.updateSpecies(id, request);
+  //     return ResponseEntity.ok(response);
+  //   } catch (Exception e) {
+  //     return ResponseEntity.status(500).body(null);
+  //   }
+  // }
 
-  @GetMapping("/species")
-  public ResponseEntity<List<SpeciesResponse>> getAllSpecies() {
-    try {
-      List<SpeciesResponse> responses = speciesService.getAllSpecies();
-      return ResponseEntity.ok(responses);
-    } catch (Exception e) {
-      return ResponseEntity.status(500).body(null);
-    }
-  }
+  // @GetMapping("/species")
+  // public ResponseEntity<List<SpeciesResponse>> getAllSpecies() {
+  //   try {
+  //     List<SpeciesResponse> responses = speciesService.getAllSpecies();
+  //     return ResponseEntity.ok(responses);
+  //   } catch (Exception e) {
+  //     return ResponseEntity.status(500).body(null);
+  //   }
+  // }
 
-  @DeleteMapping("/species/{id}")
-  public ResponseEntity<Void> deleteSpecies(@PathVariable("id") Long id) {
-    try {
-      speciesService.deleteSpecies(id);
-      return ResponseEntity.noContent().build();
-    } catch (Exception e) {
-      return ResponseEntity.status(500).build();
-    }
-  }
+  // @DeleteMapping("/species/{id}")
+  // public ResponseEntity<Void> deleteSpecies(@PathVariable("id") Long id) {
+  //   try {
+  //     speciesService.deleteSpecies(id);
+  //     return ResponseEntity.noContent().build();
+  //   } catch (Exception e) {
+  //     return ResponseEntity.status(500).build();
+  //   }
+  // }
 
   @GetMapping("/breeds/{id}")
   public ResponseEntity<BreedResponse> getBreedById(@PathVariable("id") Long id) {

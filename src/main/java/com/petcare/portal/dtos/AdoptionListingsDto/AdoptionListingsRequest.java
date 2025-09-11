@@ -12,8 +12,8 @@ public class AdoptionListingsRequest {
   private String description;
   private String gender;
   private Long breedId;
-  private Long speciesId;
+  private String species;
   private String status;
+  private String adoptionStatus; 
   private int age;
-  private String location;
 }
