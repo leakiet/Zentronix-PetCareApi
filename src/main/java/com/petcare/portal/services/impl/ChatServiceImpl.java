@@ -4,10 +4,10 @@ import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
 import com.petcare.portal.entities.ChatMessage;
 import com.petcare.portal.entities.Conversation;
-import com.petcare.portal.entities.Customer;
+import com.petcare.portal.entities.User;
 import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
-import com.petcare.portal.repositories.CustomerRepository;
+import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
-
     private final ChatMessageRepository chatMessageRepository;
     private final ConversationRepository conversationRepository;
     private final CustomerRepository customerRepository;

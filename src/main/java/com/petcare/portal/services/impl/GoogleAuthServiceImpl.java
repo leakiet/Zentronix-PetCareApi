@@ -8,8 +8,8 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.petcare.portal.entities.Customer;
-import com.petcare.portal.repositories.CustomerRepository;
+import com.petcare.portal.entities.User;
+import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.GoogleAuthService;
 
 @Service
@@ -19,13 +19,13 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
     private String googleClientId;
 
     @Autowired
-    private CustomerRepository customerRepository;
+    private UserRepository customerRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public Customer authenticateGoogleUser(String idToken) {
+    public User authenticateGoogleUser(String idToken) {
         try {
             // Verify token với Google
             JsonNode tokenInfo = getGoogleTokenInfo(idToken);
@@ -39,11 +39,11 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
             String googleId = tokenInfo.get("sub").asText();
 
             // Tìm user existing hoặc tạo mới
-            Customer customer = customerRepository.findByEmail(email);
+            User customer = customerRepository.findByEmail(email);
             
             if (customer == null) {
                 // Tạo customer mới cho Google user
-                customer = new Customer();
+                customer = new User();
                 customer.setEmail(email);
                 customer.setFirstName(firstName);
                 customer.setLastName(lastName);

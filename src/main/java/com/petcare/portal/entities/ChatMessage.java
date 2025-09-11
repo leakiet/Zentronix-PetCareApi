@@ -11,7 +11,7 @@ public class ChatMessage extends AbstractEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id")
-    private Customer customer;           // null = guest
+    private User customer;           // null = guest
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id")
@@ -23,7 +23,7 @@ public class ChatMessage extends AbstractEntity {
     @Lob private String content;
     private LocalDateTime timestamp;
 
-    public ChatMessage(Long id, Customer customer, Conversation conversation,
+    public ChatMessage(Long id, User customer, Conversation conversation,
                        String senderName, Boolean isFromAI,
                        String content, LocalDateTime timestamp) {
         this.id = id;

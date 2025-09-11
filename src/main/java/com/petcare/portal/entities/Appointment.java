@@ -30,12 +30,12 @@ public class Appointment extends AbstractEntity {
   @ManyToOne
   @JoinColumn(name = "owner_id", nullable = false)
   @JsonBackReference
-  private Customer owner;
+  private User owner;
 
   @ManyToOne
   @JoinColumn(name = "vet_id", nullable = false)
   @JsonBackReference
-  private Customer vet;
+  private User vet;
 
   private DateTime appointmentTime;
   private String reason;

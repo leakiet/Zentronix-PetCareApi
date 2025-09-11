@@ -2,10 +2,10 @@ package com.petcare.portal.services.impl;
 
 import org.springframework.stereotype.Service;
 
-import com.petcare.portal.entities.Customer;
+import com.petcare.portal.entities.User;
 import com.petcare.portal.entities.OtpRecords;
-import com.petcare.portal.services.CustomerService;
-import com.petcare.portal.repositories.CustomerRepository;
+import com.petcare.portal.services.UserService;
+import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.repositories.OtpRecordsRepository;
 
 import java.util.List;
@@ -19,10 +19,10 @@ import java.util.UUID;
 import java.time.LocalDateTime;
 
 @Service
-public class CustomerServiceImpl implements CustomerService {
+public class UserServiceImpl implements UserService {
 
   @Autowired
-  private CustomerRepository customerRepository;
+  private UserRepository customerRepository;
 
   @Autowired
   private OtpRecordsRepository otpRecordsRepository;
@@ -33,30 +33,30 @@ public class CustomerServiceImpl implements CustomerService {
   private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
   @Override
-  public Customer findByEmail(String email) {
+  public User findByEmail(String email) {
     return customerRepository.findByEmail(email);
   }
 
   @Override
-  public List<Customer> listAll() {
+  public List<User> listAll() {
     return customerRepository.findAll();
   }
 
   @Override
-  public Customer save(Customer customer) {
+  public User save(User customer) {
     String hashedPassword = encoder.encode(customer.getPassword());
     customer.setPassword(hashedPassword);
     return customerRepository.save(customer);
   }
 
   @Override
-  public Customer findById(Long id) {
+  public User findById(Long id) {
     return customerRepository.findById(id).orElse(null);
   }
 
   @Override
-  public Customer update(Customer customer) {
-    Customer existingCustomer = findById(customer.getId());
+  public User update(User customer) {
+    User existingCustomer = findById(customer.getId());
     if (existingCustomer == null) {
       throw new IllegalArgumentException("Customer not found with id: " + customer.getId());
     }
@@ -76,8 +76,8 @@ public class CustomerServiceImpl implements CustomerService {
   }
 
   @Override
-  public Customer checkLogin(String email, String password) {
-    Customer customer = customerRepository.findByEmail(email);
+  public User checkLogin(String email, String password) {
+    User customer = customerRepository.findByEmail(email);
     if (customer == null || !encoder.matches(password, customer.getPassword())) {
       throw new IllegalArgumentException("Invalid email or password");
     }
@@ -93,8 +93,8 @@ public class CustomerServiceImpl implements CustomerService {
   }
 
   @Override
-  public Customer registerCustomer(Customer customer) {
-    Customer existingCustomer = customerRepository.findByEmail(customer.getEmail());
+  public User registerUser(User customer) {
+    User existingCustomer = customerRepository.findByEmail(customer.getEmail());
     if (existingCustomer != null) {
       throw new IllegalArgumentException("Email already registered: " + customer.getEmail());
     }
@@ -102,7 +102,7 @@ public class CustomerServiceImpl implements CustomerService {
     String verifyToken = UUID.randomUUID().toString();
     customer.setVerifyToken(verifyToken);
     customer.setVerifyTokenExpireAt(LocalDateTime.now().plusMinutes(10));
-    Customer savedCustomer = customerRepository.save(customer);
+    User savedCustomer = customerRepository.save(customer);
     // Send verification email
     emailService.sendVerificationEmail(
         customer.getEmail(),
@@ -111,8 +111,8 @@ public class CustomerServiceImpl implements CustomerService {
   }
 
   @Override
-  public Customer verifyEmail(String email, String token) {
-    Customer customer = customerRepository.findByEmail(email);
+  public User verifyEmail(String email, String token) {
+    User customer = customerRepository.findByEmail(email);
     if (customer == null) {
       throw new IllegalArgumentException("Customer not found with email: " + email);
     }
@@ -133,8 +133,8 @@ public class CustomerServiceImpl implements CustomerService {
   }
 
   @Override
-  public Customer resendVerifyEmail(String email) {
-    Customer customer = customerRepository.findByEmail(email);
+  public User resendVerifyEmail(String email) {
+    User customer = customerRepository.findByEmail(email);
     if (customer == null) {
       throw new IllegalArgumentException("Customer not found with email: " + email);
     }
@@ -152,7 +152,7 @@ public class CustomerServiceImpl implements CustomerService {
   @Override
   public void sendOtpCode(String email) {
 
-    Customer customer = customerRepository.findByEmail(email);
+    User customer = customerRepository.findByEmail(email);
     if (customer == null) {
       throw new IllegalArgumentException("Customer not found with email: " + email);
     }
@@ -204,7 +204,7 @@ public class CustomerServiceImpl implements CustomerService {
   @Override
   public void resetPassword(String email, String newPassword) {
     // Find customer
-    Customer customer = customerRepository.findByEmail(email);
+    User customer = customerRepository.findByEmail(email);
     if (customer == null) {
       throw new IllegalArgumentException("Customer not found with email: " + email);
     }

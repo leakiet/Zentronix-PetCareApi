@@ -12,7 +12,7 @@ public class Conversation extends AbstractEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id")
-    private Customer customer;          // null = guest
+    private User customer;
 
     private String title;
     private LocalDateTime startTime;
