@@ -1,4 +1,4 @@
-package com.petcare.portal.dtos;
+package com.petcare.portal.dtos.authDtos;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class LoginRequest {
+public class RegisterRequest {
   private String email;
   private String password;
 }
