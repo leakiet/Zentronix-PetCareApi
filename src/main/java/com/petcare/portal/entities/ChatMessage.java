@@ -9,9 +9,14 @@ import java.time.LocalDateTime;
 @Table(name = "chat_messages")
 public class ChatMessage extends AbstractEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
-    private User customer;           // null = guest
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 4589087290296753730L;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;           // null = guest
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id")
@@ -23,11 +28,11 @@ public class ChatMessage extends AbstractEntity {
     @Lob private String content;
     private LocalDateTime timestamp;
 
-    public ChatMessage(Long id, User customer, Conversation conversation,
+    public ChatMessage(Long id, User user, Conversation conversation,
                        String senderName, Boolean isFromAI,
                        String content, LocalDateTime timestamp) {
         this.id = id;
-        this.customer = customer;
+        this.user = user;
         this.conversation = conversation;
         this.senderName = senderName;
         this.isFromAI = isFromAI;

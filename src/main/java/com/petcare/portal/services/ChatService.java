@@ -6,7 +6,7 @@ import com.petcare.portal.dtos.ChatResponse;
 import java.util.List;
 
 public interface ChatService {
-    ChatResponse           sendMessage(Long customerId, ChatRequest request);
+    ChatResponse           sendMessage(Long userId, ChatRequest request);
     List<ChatResponse>     getMessagesByConversation(Long conversationId);
-    List<Long>             getConversationsByCustomer(Long customerId);
+    List<Long>             getConversationsByUser(Long userId);
 }

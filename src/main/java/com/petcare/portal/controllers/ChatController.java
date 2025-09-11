@@ -23,6 +23,7 @@ public class ChatController {
     private final ChatService chatService;
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatController.class);
 
     /**
      * Endpoint để gửi tin nhắn đến AI.
@@ -58,7 +59,7 @@ public class ChatController {
     @GetMapping("/conversations")
     public ResponseEntity<List<Long>> getConversations(
             @RequestParam("customerId") Long customerId) {
-        List<Long> conversationIds = chatService.getConversationsByCustomer(customerId);
+        List<Long> conversationIds = chatService.getConversationsByUser(customerId);
         return ResponseEntity.ok(conversationIds);
     }
 
@@ -307,6 +308,54 @@ public class ChatController {
             errorInfo.put("error", e.getMessage());
             errorInfo.put("success", false);
             return ResponseEntity.badRequest().body(errorInfo);
+        }
+    }
+    
+    /**
+     * Test endpoint để verify transaction rollback fix
+     */
+    @PostMapping("/test-transaction")
+    public ResponseEntity<Map<String, Object>> testTransactionFix(
+            @RequestParam Long customerId,
+            @RequestParam String testMessage) {
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("testStarted", true);
+        result.put("customerId", customerId);
+        result.put("testMessage", testMessage);
+        result.put("timestamp", java.time.LocalDateTime.now());
+
+        try {
+            // Test the actual sendMessage method
+            ChatRequest testRequest = new ChatRequest();
+            testRequest.setMessage(testMessage);
+            testRequest.setConversationId(null);
+
+            ChatResponse response = chatService.sendMessage(customerId, testRequest);
+
+            result.put("success", true);
+            result.put("response", response);
+            result.put("message", "Transaction completed successfully without rollback");
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            result.put("errorType", e.getClass().getSimpleName());
+            result.put("message", "Transaction test failed");
+
+            // Check if it's a rollback exception
+            if (e.getMessage() != null && e.getMessage().contains("rollback")) {
+                result.put("isRollbackError", true);
+                result.put("rollbackFixStatus", "FAILED - Transaction still rolling back");
+            } else {
+                result.put("isRollbackError", false);
+                result.put("rollbackFixStatus", "UNKNOWN - Different error type");
+            }
+
+            log.error("Transaction test failed", e);
+            return ResponseEntity.badRequest().body(result);
         }
     }
 }
