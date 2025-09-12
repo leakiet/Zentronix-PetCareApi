@@ -51,7 +51,8 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                 customer.setOauthProviderId(googleId);
                 customer.setIsOauthUser(true);
                 customer.setIsActive(true); // OAuth users auto active
-                customer = customerRepository.save(customer);
+                User savedCustomer = customerRepository.save(customer);
+                customer.setId(savedCustomer.getId());
             } else {
                 // Update OAuth info cho existing user (nếu chưa có)
                 if (customer.getOauthProvider() == null) {

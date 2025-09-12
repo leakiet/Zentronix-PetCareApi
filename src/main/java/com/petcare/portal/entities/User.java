@@ -76,4 +76,8 @@ public class User extends AbstractEntity {
 	@JsonManagedReference
 	private List<Pet> pets;
 
+	public String getFullName() {
+		return this.firstName + " " + this.lastName;
+	}
+
 }

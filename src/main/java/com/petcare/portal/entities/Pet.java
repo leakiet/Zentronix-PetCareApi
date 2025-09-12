@@ -10,6 +10,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 import com.petcare.portal.enums.Gender;
+import com.petcare.portal.enums.Species;
 
 import java.util.List;
 
@@ -34,9 +35,16 @@ public class Pet extends AbstractEntity {
     private User owner;
 
     private String petName;
-    private String species;
-    private String breed;
+    private String weight;
     private String image;
+    private String color;
+
+    @ManyToOne
+    @JoinColumn(name = "breed_id")
+    private Breed breed;
+
+    @Enumerated(EnumType.STRING)
+    private Species species;
 
     @Enumerated(EnumType.STRING)
     private Gender gender;

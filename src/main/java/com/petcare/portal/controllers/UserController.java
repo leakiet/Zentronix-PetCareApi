@@ -8,16 +8,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.multipart.MultipartFile;
 
 import com.petcare.portal.entities.User;
 import com.petcare.portal.services.UserService;
+import com.petcare.portal.dtos.userDtos.updateRequest;
+import com.petcare.portal.dtos.userDtos.userResponse;
 
 import org.springframework.web.bind.annotation.PutMapping;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
 
@@ -48,8 +45,15 @@ public class UserController {
   }
 
   @PutMapping("/update")
-  public String getMethodName(@RequestBody String param) {
-      return new String();
+  public ResponseEntity<userResponse> updateUser(@Valid @RequestBody updateRequest updateRequest) {
+    try {
+      userResponse response = userService.updateUserByEmail(updateRequest);
+      return ResponseEntity.ok(response);
+    } catch (IllegalArgumentException e) {
+      userResponse errorResponse = new userResponse();
+      errorResponse.setMessage(e.getMessage());
+      return ResponseEntity.badRequest().body(errorResponse);
+    }
   }
   
 

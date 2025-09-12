@@ -3,6 +3,7 @@ package com.petcare.portal.services.impl;
 import org.springframework.stereotype.Service;
 
 import com.petcare.portal.entities.User;
+import com.petcare.portal.entities.Address;
 import com.petcare.portal.entities.OtpRecords;
 import com.petcare.portal.services.UserService;
 import com.petcare.portal.repositories.UserRepository;
@@ -17,6 +18,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import com.petcare.portal.services.EmailService;
 import java.util.UUID;
 import java.time.LocalDateTime;
+import org.modelmapper.ModelMapper;
+import com.petcare.portal.dtos.userDtos.updateRequest;
+import com.petcare.portal.dtos.userDtos.userResponse;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -29,6 +33,9 @@ public class UserServiceImpl implements UserService {
 
   @Autowired
   private EmailService emailService;
+
+  @Autowired
+  private ModelMapper modelMapper;
 
   private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
@@ -56,16 +63,19 @@ public class UserServiceImpl implements UserService {
 
   @Override
   public User update(User customer) {
-    User existingCustomer = findById(customer.getId());
+    User existingCustomer = findByEmail(customer.getEmail());
     if (existingCustomer == null) {
-      throw new IllegalArgumentException("Customer not found with id: " + customer.getId());
+      throw new IllegalArgumentException("Customer not found with email: " + customer.getEmail());
     }
-    existingCustomer.setFirstName(customer.getFirstName());
-    existingCustomer.setLastName(customer.getLastName());
-    existingCustomer.setEmail(customer.getEmail());
-    existingCustomer.setGender(customer.getGender());
-    existingCustomer.setPhone(customer.getPhone());
-    existingCustomer.setAddress(customer.getAddress());
+
+    // Use ModelMapper to map non-null fields
+    modelMapper.getConfiguration().setSkipNullEnabled(true);
+    modelMapper.map(customer, existingCustomer);
+
+    // Handle password encoding if provided
+    if (customer.getPassword() != null && !customer.getPassword().trim().isEmpty()) {
+      existingCustomer.setPassword(encoder.encode(customer.getPassword()));
+    }
 
     return customerRepository.save(existingCustomer);
   }
@@ -230,6 +240,42 @@ public class UserServiceImpl implements UserService {
     Random random = new Random();
     int otp = 100000 + random.nextInt(900000); // Generate 6-digit OTP
     return String.valueOf(otp);
+  }
+
+  @Override
+  public userResponse updateUserByEmail(updateRequest request) {
+    // Find existing user by email
+    User existingUser = findByEmail(request.getEmail());
+    if (existingUser == null) {
+      throw new IllegalArgumentException("User not found with email: " + request.getEmail());
+    }
+
+    // Use ModelMapper to map non-null fields from request to existing user
+    modelMapper.getConfiguration().setSkipNullEnabled(true);
+    modelMapper.map(request, existingUser);
+
+    // Handle special cases
+    if (request.getRole() != null) {
+      existingUser.setRole(com.petcare.portal.enums.Role.valueOf(request.getRole()));
+    }
+    if (request.getAddress() != null) {
+      // Convert AddressRequest to Address entity
+      Address address = modelMapper.map(request.getAddress(), Address.class);
+      existingUser.setAddress(address);
+    }
+    if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+      // Only update password if provided and encode it
+      existingUser.setPassword(encoder.encode(request.getPassword()));
+    }
+
+    // Save updated user
+    User updatedUser = customerRepository.save(existingUser);
+
+    // Convert updated user to response
+    userResponse response = modelMapper.map(updatedUser, userResponse.class);
+    response.setMessage("User updated successfully");
+
+    return response;
   }
 
 }
