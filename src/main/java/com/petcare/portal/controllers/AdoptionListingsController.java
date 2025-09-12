@@ -47,6 +47,7 @@ public class AdoptionListingsController {
       AdoptionListingsResponse response = adoptionListingsService.getAdoptionListingById(id);
       return ResponseEntity.ok(response);
     } catch (Exception e) {
+      System.err.println("Error in getAdoptionListingById: " + e.getMessage());
       return ResponseEntity.status(500).body(null);
     }
   }
