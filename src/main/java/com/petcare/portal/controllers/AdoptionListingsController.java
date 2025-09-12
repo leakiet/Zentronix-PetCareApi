@@ -3,6 +3,10 @@ package com.petcare.portal.controllers;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,7 +34,6 @@ public class AdoptionListingsController {
 
   @Autowired
   private AdoptionListingsService adoptionListingsService;
-
 
   @Autowired
   private BreedService breedService;
@@ -95,9 +98,20 @@ public class AdoptionListingsController {
   }
 
   @GetMapping
-  public ResponseEntity<List<AdoptionListingsResponse>> getAllAdoptionListings() {
+  public ResponseEntity<Page<AdoptionListingsResponse>> getAllAdoptionListings(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @RequestParam(defaultValue = "id") String sortField,
+      @RequestParam(defaultValue = "asc") String sortDir,
+      @RequestParam(required = false) String species,
+      @RequestParam(required = false) Long breedId,
+      @RequestParam(required = false) String gender,
+      @RequestParam(required = false) Integer minAge,
+      @RequestParam(required = false) Integer maxAge) {
     try {
-      List<AdoptionListingsResponse> responses = adoptionListingsService.getAllAdoptionListings();
+      Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortField);
+      Pageable pageable = PageRequest.of(page, size, sort);
+      Page<AdoptionListingsResponse> responses = adoptionListingsService.getAllAdoptionListings(pageable, species, breedId, gender, minAge, maxAge);
       return ResponseEntity.ok(responses);
     } catch (Exception e) {
       return ResponseEntity.status(500).body(null);
@@ -117,56 +131,6 @@ public class AdoptionListingsController {
       return ResponseEntity.status(500).build();
     }
   }
-
-  // @GetMapping("/species/{id}")
-  // public ResponseEntity<SpeciesResponse> getSpeciesById(@PathVariable("id") Long id) {
-  //   try {
-  //     SpeciesResponse response = speciesService.getSpeciesById(id);
-  //     return ResponseEntity.ok(response);
-  //   } catch (Exception e) {
-  //     return ResponseEntity.status(500).body(null);
-  //   }
-  // }
-
-  // @PostMapping("/species")
-  // public ResponseEntity<SpeciesResponse> createSpecies(@RequestBody SpeciesRequest request) {
-  //   try {
-  //     SpeciesResponse response = speciesService.createSpecies(request);
-  //     return ResponseEntity.ok(response);
-  //   } catch (Exception e) {
-  //     return ResponseEntity.status(500).body(null);
-  //   }
-  // }
-
-  // @PutMapping("/species/{id}")
-  // public ResponseEntity<SpeciesResponse> updateSpecies(@PathVariable("id") Long id, @RequestBody SpeciesRequest request) {
-  //   try {
-  //     SpeciesResponse response = speciesService.updateSpecies(id, request);
-  //     return ResponseEntity.ok(response);
-  //   } catch (Exception e) {
-  //     return ResponseEntity.status(500).body(null);
-  //   }
-  // }
-
-  // @GetMapping("/species")
-  // public ResponseEntity<List<SpeciesResponse>> getAllSpecies() {
-  //   try {
-  //     List<SpeciesResponse> responses = speciesService.getAllSpecies();
-  //     return ResponseEntity.ok(responses);
-  //   } catch (Exception e) {
-  //     return ResponseEntity.status(500).body(null);
-  //   }
-  // }
-
-  // @DeleteMapping("/species/{id}")
-  // public ResponseEntity<Void> deleteSpecies(@PathVariable("id") Long id) {
-  //   try {
-  //     speciesService.deleteSpecies(id);
-  //     return ResponseEntity.noContent().build();
-  //   } catch (Exception e) {
-  //     return ResponseEntity.status(500).build();
-  //   }
-  // }
 
   @GetMapping("/breeds/{id}")
   public ResponseEntity<BreedResponse> getBreedById(@PathVariable("id") Long id) {

@@ -30,21 +30,12 @@ public class AdoptionListing extends AbstractEntity {
   private User shelter;
 
   private String petName;
+  private String description;
   private int age;
   private String image;
 
   @Enumerated(EnumType.STRING)
   private Gender gender;
-
-  private String description;
-
-  private String color;
-
-  @Enumerated(EnumType.STRING)
-  private PetHealthStatus status;
-
-  @Enumerated(EnumType.STRING)
-  private AdoptionStatus adoptionStatus;
 
   @ManyToOne
   @JoinColumn(name = "breed_id")
@@ -53,4 +44,9 @@ public class AdoptionListing extends AbstractEntity {
   @Enumerated(EnumType.STRING)
   private Species species;
 
+  @Enumerated(EnumType.STRING)
+  private AdoptionStatus adoptionStatus;
+
+  @Enumerated(EnumType.STRING)
+  private PetHealthStatus status;
 }
