@@ -17,6 +17,7 @@ public class AdoptionListingsResponse {
   private Breed breed;
   private String species;
   private String status;
+  
   private String adoptionStatus;
   private int age;
 }

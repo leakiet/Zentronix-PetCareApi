@@ -13,11 +13,12 @@ import com.petcare.portal.enums.Species;
 public interface AdoptionListingsRepository extends JpaRepository<AdoptionListing, Long> {
 
   @Query("SELECT a FROM AdoptionListing a WHERE " +
-         "(:species IS NULL OR a.species = :species) AND " +
-         "(:breedId IS NULL OR a.breed.id = :breedId) AND " +
-         "(:gender IS NULL OR a.gender = :gender) AND " +
-         "(:minAge IS NULL OR a.age >= :minAge) AND " +
-         "(:maxAge IS NULL OR a.age <= :maxAge)")
+      "(:species IS NULL OR a.species = :species) AND " +
+      "(:breedId IS NULL OR a.breed.id = :breedId) AND " +
+      "(:gender IS NULL OR a.gender = :gender) AND " +
+      "(:minAge IS NULL OR a.age >= :minAge) AND " +
+      "(:maxAge IS NULL OR a.age <= :maxAge) AND " +
+      "a.adoptionStatus = 'PENDING'")
   Page<AdoptionListing> findFilteredAdoptionListings(
       @Param("species") Species species,
       @Param("breedId") Long breedId,

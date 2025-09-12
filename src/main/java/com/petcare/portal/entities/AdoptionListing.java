@@ -11,11 +11,14 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -49,4 +52,14 @@ public class AdoptionListing extends AbstractEntity {
 
   @Enumerated(EnumType.STRING)
   private PetHealthStatus status;
+
+  @ManyToOne
+  @JoinColumn(name = "adopted_by_owner_id")
+  private User adoptedBy;
+
+  private LocalDateTime adoptedAt;
+
+  @OneToOne
+  @JoinColumn(name = "approved_request_id")
+  private AdoptionRequest approvedRequest;
 }
