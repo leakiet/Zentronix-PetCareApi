@@ -5,19 +5,21 @@ import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsRequest;
 import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.entities.AdoptionListing;
 import com.petcare.portal.entities.Breed;
-import com.petcare.portal.entities.Species;
 import com.petcare.portal.entities.User;
 import com.petcare.portal.enums.AdoptionStatus;
 import com.petcare.portal.enums.Gender;
+import com.petcare.portal.enums.PetHealthStatus;
+import com.petcare.portal.enums.Species;
 import com.petcare.portal.repositories.AdoptionListingsRepository;
 import com.petcare.portal.repositories.BreedRepository;
-import com.petcare.portal.repositories.SpeciesRepository;
 import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.AdoptionListingsService;
 
@@ -29,9 +31,6 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
 
   @Autowired
   private BreedRepository breedRepository;
-
-  @Autowired
-  private SpeciesRepository speciesRepository;
 
   @Autowired
   private UserRepository userRepository;
@@ -62,14 +61,13 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
       adoptionListing.setAge(adoptionListingsRequest.getAge());
       adoptionListing.setGender(Gender.valueOf(adoptionListingsRequest.getGender()));
       adoptionListing.setImage(adoptionListingsRequest.getImage());
-      adoptionListing.setDescription(adoptionListingsRequest.getDescription());
-      adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getStatus()));
+      adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getAdoptionStatus()));
+      adoptionListing.setStatus(PetHealthStatus.valueOf(adoptionListingsRequest.getStatus()));
       User user = userRepository.findById(Long.valueOf(adoptionListingsRequest.getShelterId())).orElseThrow(() -> new RuntimeException("User not found"));
       adoptionListing.setShelter(user);
       Breed breed = breedRepository.findById(adoptionListingsRequest.getBreedId()).orElseThrow(() -> new RuntimeException("Breed not found"));
       adoptionListing.setBreed(breed);
-      Species species = speciesRepository.findById(adoptionListingsRequest.getSpeciesId()).orElseThrow(() -> new RuntimeException("Species not found"));
-      adoptionListing.setSpecies(species);
+      adoptionListing.setSpecies(Species.valueOf(adoptionListingsRequest.getSpecies()));
       AdoptionListing savedAdoptionListing = adoptionListingsRepository.save(adoptionListing);
       modelMapper.typeMap(AdoptionListing.class, AdoptionListingsResponse.class).addMappings(mapper -> {
         mapper.map(src -> src.getShelter().getId().toString(), AdoptionListingsResponse::setShelterId);
@@ -90,14 +88,13 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
       adoptionListing.setAge(adoptionListingsRequest.getAge());
       adoptionListing.setGender(Gender.valueOf(adoptionListingsRequest.getGender()));
       adoptionListing.setImage(adoptionListingsRequest.getImage());
-      adoptionListing.setDescription(adoptionListingsRequest.getDescription());
-      adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getStatus()));
+      adoptionListing.setAdoptionStatus(AdoptionStatus.valueOf(adoptionListingsRequest.getAdoptionStatus()));
+      adoptionListing.setStatus(PetHealthStatus.valueOf(adoptionListingsRequest.getStatus()));
       User user = userRepository.findById(Long.valueOf(adoptionListingsRequest.getShelterId())).orElseThrow(() -> new RuntimeException("User not found"));
       adoptionListing.setShelter(user);
       Breed breed = breedRepository.findById(adoptionListingsRequest.getBreedId()).orElseThrow(() -> new RuntimeException("Breed not found"));
       adoptionListing.setBreed(breed);
-      Species species = speciesRepository.findById(adoptionListingsRequest.getSpeciesId()).orElseThrow(() -> new RuntimeException("Species not found"));
-      adoptionListing.setSpecies(species);
+      adoptionListing.setSpecies(Species.valueOf(adoptionListingsRequest.getSpecies()));
       AdoptionListing updatedAdoptionListing = adoptionListingsRepository.save(adoptionListing);
       modelMapper.typeMap(AdoptionListing.class, AdoptionListingsResponse.class).addMappings(mapper -> {
         mapper.map(src -> src.getShelter().getId().toString(), AdoptionListingsResponse::setShelterId);
@@ -109,20 +106,28 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
     }
   }
 
-  @Override
-  public List<AdoptionListingsResponse> getAllAdoptionListings() {
-    try {
-      List<AdoptionListing> adoptionListingList = adoptionListingsRepository.findAll();
-      modelMapper.typeMap(AdoptionListing.class, AdoptionListingsResponse.class).addMappings(mapper -> {
-        mapper.map(src -> src.getShelter().getId().toString(), AdoptionListingsResponse::setShelterId);
-      });
-      return adoptionListingList.stream()
-          .map(adoptionListing -> modelMapper.map(adoptionListing, AdoptionListingsResponse.class))
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      throw new RuntimeException("Error retrieving adoption listings", e);
+    @Override
+    public Page<AdoptionListingsResponse> getAllAdoptionListings(Pageable pageable, String species, Long breedId, String gender, Integer minAge, Integer maxAge) {
+      try {
+        System.out.println("Debug: species=" + species + ", breedId=" + breedId + ", gender=" + gender + ", minAge=" + minAge + ", maxAge=" + maxAge);
+        Species speciesEnum = species != null ? Species.valueOf(species.toUpperCase()) : null;
+        Gender genderEnum = null;
+        if (gender != null) {
+          try {
+            genderEnum = Gender.valueOf(gender.toUpperCase());
+          } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid gender value: " + gender, e);
+          }
+        }
+        Page<AdoptionListing> adoptionListingPage = adoptionListingsRepository.findFilteredAdoptionListings(speciesEnum, breedId, genderEnum, minAge, maxAge, pageable);
+        modelMapper.typeMap(AdoptionListing.class, AdoptionListingsResponse.class).addMappings(mapper -> {
+          mapper.map(src -> src.getShelter().getId().toString(), AdoptionListingsResponse::setShelterId);
+        });
+        return adoptionListingPage.map(adoptionListing -> modelMapper.map(adoptionListing, AdoptionListingsResponse.class));
+      } catch (Exception e) {
+        throw new RuntimeException("Error retrieving adoption listings", e);
+      }
     }
-  }
 
   @Override
   public void deleteAdoptionListing(Long id) {
