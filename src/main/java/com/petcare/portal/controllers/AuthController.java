@@ -28,6 +28,7 @@ import com.petcare.portal.dtos.authDtos.RegisterRequest;
 import com.petcare.portal.dtos.authDtos.RegisterResponse;
 import com.petcare.portal.dtos.authDtos.ResetPasswordRequest;
 import com.petcare.portal.dtos.authDtos.VerifyRequest;
+import com.petcare.portal.dtos.authDtos.AddressRequest;
 import com.petcare.portal.entities.Employee;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -71,6 +72,18 @@ public class AuthController {
     }
     User user = userService.checkLogin(request.getEmail(), request.getPassword());
     LoginResponse response = mapper.map(user, LoginResponse.class);
+    
+    // Manually map address from User entity to AddressRequest
+    if (user.getAddress() != null) {
+      AddressRequest addressRequest = new AddressRequest();
+      addressRequest.setStreet(user.getAddress().getStreet());
+      addressRequest.setWard(user.getAddress().getWard());
+      addressRequest.setCity(user.getAddress().getCity());
+      addressRequest.setLatitude(user.getAddress().getLatitude());
+      addressRequest.setLongitude(user.getAddress().getLongitude());
+      response.setAddress(addressRequest);
+    }
+    
     response.setToken(jwtUtils.generateJwtToken(authentication));
     response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
     response.setTokenType("Bearer");
@@ -198,7 +211,18 @@ public class AuthController {
       
       // Return response giống như login thường
       LoginResponse response = mapper.map(user, LoginResponse.class);
-      response.setId(user.getId());
+      
+      // Manually map address from User entity to AddressRequest
+      if (user.getAddress() != null) {
+        AddressRequest addressRequest = new AddressRequest();
+        addressRequest.setStreet(user.getAddress().getStreet());
+        addressRequest.setWard(user.getAddress().getWard());
+        addressRequest.setCity(user.getAddress().getCity());
+        addressRequest.setLatitude(user.getAddress().getLatitude());
+        addressRequest.setLongitude(user.getAddress().getLongitude());
+        response.setAddress(addressRequest);
+      }
+      
       response.setToken(jwt);
       response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
       response.setTokenType("Bearer");
@@ -252,6 +276,18 @@ public class AuthController {
         response = mapper.map(userDetails.getEmployee(), LoginResponse.class);
       } else if (userDetails.getCustomer() != null) {
         response = mapper.map(userDetails.getCustomer(), LoginResponse.class);
+        
+        // Manually map address from User entity to AddressRequest
+        User customer = userDetails.getCustomer();
+        if (customer.getAddress() != null) {
+          AddressRequest addressRequest = new AddressRequest();
+          addressRequest.setStreet(customer.getAddress().getStreet());
+          addressRequest.setWard(customer.getAddress().getWard());
+          addressRequest.setCity(customer.getAddress().getCity());
+          addressRequest.setLatitude(customer.getAddress().getLatitude());
+          addressRequest.setLongitude(customer.getAddress().getLongitude());
+          response.setAddress(addressRequest);
+        }
       }
       
       response.setToken(newAccessToken);
