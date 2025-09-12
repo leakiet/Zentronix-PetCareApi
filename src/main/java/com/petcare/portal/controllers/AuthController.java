@@ -198,6 +198,7 @@ public class AuthController {
       
       // Return response giống như login thường
       LoginResponse response = mapper.map(user, LoginResponse.class);
+      response.setId(user.getId());
       response.setToken(jwt);
       response.setRefreshToken(jwtUtils.generateRefreshToken(authentication)); // Thêm refresh token
       response.setTokenType("Bearer");
