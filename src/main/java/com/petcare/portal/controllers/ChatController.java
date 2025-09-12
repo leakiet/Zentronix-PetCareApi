@@ -1,19 +1,32 @@
 package com.petcare.portal.controllers;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
+import com.petcare.portal.entities.ChatMessage;
 import com.petcare.portal.entities.Conversation;
 import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
 import com.petcare.portal.services.ChatService;
 import com.petcare.portal.services.impl.ChatServiceImpl;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import org.springframework.data.domain.Page;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/apis/v1/chat")
@@ -23,25 +36,25 @@ public class ChatController {
     private final ChatService chatService;
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ChatController.class);
+    private static final Logger log =LoggerFactory.getLogger(ChatController.class);
 
     /**
-     * Endpoint để gửi tin nhắn đến AI.
-     * @param customerId ID của khách hàng (có thể null nếu là khách vãng lai).
-     * @param request Nội dung tin nhắn.
-     * @return Phản hồi từ AI.
+     * Endpoint to send message to AI.
+     * @param userEmail User's email (null for guest users).
+     * @param request Chat request containing message and conversation details.
+     * @return AI response.
      */
     @PostMapping("/send")
     public ResponseEntity<ChatResponse> sendMessage(
-            @RequestParam(value = "customerId", required = false) Long customerId,
+            @RequestParam(value = "userEmail", required = false) String userEmail,
             @RequestBody ChatRequest request) {
-        ChatResponse response = chatService.sendMessage(customerId, request);
+        ChatResponse response = chatService.sendMessage(userEmail, request);
         return ResponseEntity.ok(response);
     }
 
     /**
      * Endpoint để lấy danh sách tin nhắn trong một cuộc trò chuyện.
-     * @param conversationId ID của cuộc trò chuyện.
+     * @param conversationId ID của cuộc trò chu	yện.
      * @return Danh sách tin nhắn.
      */
     @GetMapping("/messages")
@@ -52,14 +65,89 @@ public class ChatController {
     }
 
     /**
-     * Endpoint để lấy danh sách ID các cuộc trò chuyện của một khách hàng.
-     * @param customerId ID của khách hàng.
-     * @return Danh sách ID cuộc trò chuyện.
+     * Endpoint để lấy tin nhắn phân trang.
+     * @param conversationId ID của cuộc trò chuyện.
+     * @param page Trang (bắt đầu từ 0).
+     * @param size Số tin nhắn mỗi trang.
+     * @return Page chứa danh sách tin nhắn.
+     */
+    @GetMapping("/messages-paged")
+    public ResponseEntity<Page<ChatResponse>> getMessagesPaged(
+            @RequestParam("conversationId") Long conversationId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+
+        try {
+            // Import Page và PageRequest
+            org.springframework.data.domain.Page<ChatMessage> messagePage = chatMessageRepository
+                .findByConversationOrderByTimestampDesc(
+                    conversationRepository.findById(conversationId).orElse(null),
+                    org.springframework.data.domain.PageRequest.of(page, size)
+                );
+
+            org.springframework.data.domain.Page<ChatResponse> responsePage = messagePage.map(this::convertToChatResponse);
+            return ResponseEntity.ok(responsePage);
+
+        } catch (Exception e) {
+            log.error("Error fetching paged messages for conversation: " + conversationId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Endpoint để lấy trạng thái conversation.
+     * @param conversationId ID của cuộc trò chuyện.
+     * @return Trạng thái conversation ("AI", "EMP", "WAITING_EMP").
+     */
+    @GetMapping("/status")
+    public ResponseEntity<String> getConversationStatus(@RequestParam("conversationId") Long conversationId) {
+        try {
+            // Verify conversation exists
+            conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found: " + conversationId));
+
+            // Logic để xác định trạng thái conversation
+            // Có thể dựa trên các yếu tố như có employee đang chat không, v.v.
+            String status = "AI"; // Default to AI
+
+            // Nếu có logic phức tạp hơn, có thể implement sau
+            // Ví dụ: kiểm tra xem có employee đang chat với conversation này không
+
+            return ResponseEntity.ok(status);
+
+        } catch (Exception e) {
+            log.error("Error fetching conversation status for conversation: " + conversationId, e);
+            return ResponseEntity.badRequest().body("AI");
+        }
+    }
+
+    /**
+     * Convert ChatMessage to ChatResponse
+     */
+    private ChatResponse convertToChatResponse(ChatMessage message) {
+        ChatResponse response = new ChatResponse();
+        response.setConversationId(message.getConversation().getId());
+        response.setSender(message.getSenderName());
+        response.setMessage(message.getContent()); // Map content to message
+        response.setIsFromAI(message.getIsFromAI());
+        response.setStatus("SENT");
+        response.setMessageId(message.getId());
+        response.setTimestamp(message.getTimestamp());
+        response.setConversationStatus("AI"); // Default status
+        response.setIsTyping(false);
+        response.setTypingMessage(null);
+        return response;
+    }
+
+    /**
+     * Endpoint to get conversation IDs for a user by email.
+     * @param userEmail User's email.
+     * @return List of conversation IDs.
      */
     @GetMapping("/conversations")
     public ResponseEntity<List<Long>> getConversations(
-            @RequestParam("customerId") Long customerId) {
-        List<Long> conversationIds = chatService.getConversationsByUser(customerId);
+            @RequestParam("userEmail") String userEmail) {
+        List<Long> conversationIds = chatService.getConversationsByEmail(userEmail);
         return ResponseEntity.ok(conversationIds);
     }
 
@@ -312,16 +400,16 @@ public class ChatController {
     }
     
     /**
-     * Test endpoint để verify transaction rollback fix
+     * Test endpoint to verify transaction rollback fix
      */
     @PostMapping("/test-transaction")
     public ResponseEntity<Map<String, Object>> testTransactionFix(
-            @RequestParam Long customerId,
+            @RequestParam String userEmail,
             @RequestParam String testMessage) {
 
         Map<String, Object> result = new HashMap<>();
         result.put("testStarted", true);
-        result.put("customerId", customerId);
+        result.put("userEmail", userEmail);
         result.put("testMessage", testMessage);
         result.put("timestamp", java.time.LocalDateTime.now());
 
@@ -331,7 +419,7 @@ public class ChatController {
             testRequest.setMessage(testMessage);
             testRequest.setConversationId(null);
 
-            ChatResponse response = chatService.sendMessage(customerId, testRequest);
+            ChatResponse response = chatService.sendMessage(userEmail, testRequest);
 
             result.put("success", true);
             result.put("response", response);
