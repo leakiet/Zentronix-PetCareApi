@@ -1,6 +1,5 @@
 package com.petcare.portal.entities;
 
-import java.sql.Date;
 import java.time.LocalDateTime;
 import java.util.List;
 

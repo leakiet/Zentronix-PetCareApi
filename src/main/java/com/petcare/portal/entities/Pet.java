@@ -35,7 +35,7 @@ public class Pet extends AbstractEntity {
     private User owner;
 
     private String petName;
-    private String weight;
+    private Double weight;
     private String image;
     private String color;
 
@@ -49,7 +49,7 @@ public class Pet extends AbstractEntity {
     @Enumerated(EnumType.STRING)
     private Gender gender;
 
-    private String age;
+    private Integer age;
 
     @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

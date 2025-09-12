@@ -17,11 +17,7 @@ public class LoginResponse {
     private String lastName;
     private String phone;
     private String companyName;
-    private String street;
-    private String ward;
-    private String city;
-    private String latitude;
-    private String longitude;
+    private AddressRequest address;
     private String token;
     private String tokenType;
     private String refreshToken;

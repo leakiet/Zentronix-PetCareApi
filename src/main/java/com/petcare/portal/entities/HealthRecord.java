@@ -1,9 +1,13 @@
 package com.petcare.portal.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.google.api.client.util.DateTime;
+import com.petcare.portal.enums.RecordType;
+
+import java.time.LocalDate;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -25,13 +29,17 @@ public class HealthRecord extends AbstractEntity {
   private Pet pet;
 
   @ManyToOne
-  @JoinColumn(name = "vet_id", nullable = false)
+  @JoinColumn(name = "vet_id", nullable = true)
   @JsonBackReference
   private User vet;
 
-  private DateTime visitDate;
+  @Enumerated(EnumType.STRING)
+  private RecordType recordType;
 
+  private String title;
+  private LocalDate visitDate;
   private String diagnosis;
   private String treatment;
   private String notes;
+  private String vetName;
 }

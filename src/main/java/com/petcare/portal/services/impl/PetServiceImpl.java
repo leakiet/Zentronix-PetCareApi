@@ -44,8 +44,8 @@ public class PetServiceImpl implements PetService {
       pet.setPetName(request.getPetName());
       pet.setSpecies(Species.valueOf(request.getSpecies()));
       pet.setBreed(breed);
-      pet.setAge(request.getAge().toString());
-      pet.setWeight(request.getWeight().toString());
+      pet.setAge(request.getAge());
+      pet.setWeight(request.getWeight());
       pet.setColor(request.getColor());
       pet.setGender(Gender.valueOf(request.getGender()));
       pet.setOwner(owner);
@@ -68,7 +68,7 @@ public class PetServiceImpl implements PetService {
     try {
       User owner = userRepository.findById(userId)
           .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-      return petRepository.findByOwner(owner);
+      return petRepository.findByOwnerAndIsDeletedFalse(owner);
     } catch (IllegalArgumentException e) {
       throw new RuntimeException("Invalid user ID format: " + userId, e);
     }
@@ -101,10 +101,10 @@ public class PetServiceImpl implements PetService {
         existingPet.setSpecies(Species.valueOf(request.getSpecies()));
       }
       if (request.getAge() != null) {
-        existingPet.setAge(request.getAge().toString());
+        existingPet.setAge(request.getAge());
       }
       if (request.getWeight() != null) {
-        existingPet.setWeight(request.getWeight().toString());
+        existingPet.setWeight(request.getWeight());
       }
       if (request.getColor() != null) {
         existingPet.setColor(request.getColor());
@@ -112,11 +112,25 @@ public class PetServiceImpl implements PetService {
       if (request.getGender() != null) {
         existingPet.setGender(Gender.valueOf(request.getGender()));
       }
+      if (request.getIsDeleted() != null) {
+        existingPet.setIsDeleted(request.getIsDeleted());
+      }
       
       // Save the updated pet
       return petRepository.save(existingPet);
     } catch (Exception e) {
       throw new RuntimeException("Error updating pet: " + e.getMessage(), e);
+    }
+  }
+
+  @Override
+  public void deletePet(Long petId) {
+    try {
+      Pet pet = getPetById(petId);
+      pet.setIsDeleted(true);
+      petRepository.save(pet);
+    } catch (Exception e) {
+      throw new RuntimeException("Error deleting pet: " + e.getMessage(), e);
     }
   }
 
