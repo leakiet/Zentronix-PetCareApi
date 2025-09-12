@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -42,7 +41,9 @@ public class ChatServiceImpl implements ChatService {
     private final UserRepository userRepository;
     private final ChatClient chatClient;
     private final ResourceLoader resourceLoader;
-    private final ModelMapper modelMapper;
+
+    // Uncomment to add WebSocket messaging back
+    // private final SimpMessagingTemplate messagingTemplate;
 
     @Value("${petcare.ai.max-messages-before-summary:20}")
     private int maxMessagesBeforeSummary;
@@ -57,6 +58,16 @@ public class ChatServiceImpl implements ChatService {
     @Transactional
     public ChatResponse sendMessage(String email, ChatRequest request) {
         try {
+            // Validation cho message
+            if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
+                throw new IllegalArgumentException("Message cannot be null or empty");
+            }
+
+            // Validation cho senderRole
+            if (request.getSenderRole() == null || request.getSenderRole().trim().isEmpty()) {
+                throw new IllegalArgumentException("SenderRole cannot be null or empty");
+            }
+
             // Tìm user theo email (có thể null cho khách vãng lai)
             User user = null;
             if (email != null && !email.trim().isEmpty()) {
@@ -69,8 +80,8 @@ public class ChatServiceImpl implements ChatService {
             // Tìm hoặc tạo conversation
             Conversation conversation = findOrCreateConversation(user != null ? user.getId() : null, request.getConversationId());
 
-            // Tạo tin nhắn từ user
-            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), user != null ? user.getId() : null);
+            // Tạo tin nhắn từ user với senderRole
+            ChatMessage userMessage = createUserMessage(conversation, request.getMessage(), user != null ? user.getId() : null, request.getSenderRole());
             chatMessageRepository.save(userMessage);
 
             // Lấy số lượng tin nhắn để quyết định strategy
@@ -114,6 +125,12 @@ public class ChatServiceImpl implements ChatService {
             // Lưu phản hồi từ AI
             ChatMessage aiMessage = createAIMessage(conversation, aiResponse, user != null ? user.getId() : null);
             chatMessageRepository.save(aiMessage);
+
+            // ✅ Đảm bảo aiResponse không null
+            if (aiResponse == null || aiResponse.trim().isEmpty()) {
+                aiResponse = "Xin lỗi, tôi không thể trả lời lúc này. Vui lòng thử lại.";
+                log.warn("AI response was null or empty, using fallback message");
+            }
 
             return new ChatResponse(
                 conversation.getId(),
@@ -159,7 +176,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public List<Long> getConversationsByUser(String email) {
+    public List<Long> getConversationsByEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -197,7 +214,7 @@ public class ChatServiceImpl implements ChatService {
         return conversationRepository.save(newConversation);
     }
 
-    private ChatMessage createUserMessage(Conversation conversation, String message, Long userId) {
+    private ChatMessage createUserMessage(Conversation conversation, String message, Long userId, String senderRole) {
         ChatMessage chatMessage = new ChatMessage();
         chatMessage.setConversation(conversation);
         chatMessage.setContent(message);
@@ -211,6 +228,10 @@ public class ChatServiceImpl implements ChatService {
             chatMessage.setUser(user);
             chatMessage.setSenderName(user.getFirstName() + " " + user.getLastName());
         }
+
+        // Có thể lưu senderRole vào ChatMessage nếu cần, nhưng hiện tại chưa có field này trong entity
+        // Log senderRole để debug
+        log.debug("Creating user message with senderRole: {}", senderRole);
 
         return chatMessage;
     }
@@ -383,47 +404,41 @@ public class ChatServiceImpl implements ChatService {
             ChatMessage msg = messages.get(i);
             String sender = msg.getIsFromAI() ? "🤖 AI: " : "👤 User: ";
 
+            // Kiểm tra content null trước khi xử lý
+            String content = msg.getContent();
+            if (content == null || content.trim().isEmpty()) {
+                continue; // Bỏ qua tin nhắn null hoặc empty
+            }
+
             // Đánh dấu tin nhắn quan trọng
             boolean isImportant = importantKeywords.stream()
-                .anyMatch(keyword -> msg.getContent().toLowerCase().contains(keyword));
+                .anyMatch(keyword -> content.toLowerCase().contains(keyword));
 
             if (isImportant) {
                 sender = "🚨 " + sender; // Đánh dấu tin nhắn quan trọng
             }
 
-            context.append(sender).append(msg.getContent()).append("\n");
+            context.append(sender).append(content).append("\n");
         }
 
         return context.toString();
     }
 
     private ChatResponse convertToChatResponse(ChatMessage message) {
-        ChatResponse response = modelMapper.map(message, ChatResponse.class);
+        ChatResponse response = new ChatResponse();
         response.setConversationId(message.getConversation().getId());
+        response.setSender(message.getSenderName());
+        response.setMessage(message.getContent()); // Map content to message
+        response.setIsFromAI(message.getIsFromAI());
+        response.setStatus("SENT");
         response.setMessageId(message.getId());
         response.setTimestamp(message.getTimestamp());
-        response.setStatus("SENT");
         response.setConversationStatus("AI");
         response.setIsTyping(false);
         response.setTypingMessage(null);
         return response;
     }
 
-    // Alternative manual conversion if ModelMapper has issues
-    private ChatResponse convertToChatResponseManual(ChatMessage message) {
-        return new ChatResponse(
-            message.getConversation().getId(),
-            message.getSenderName(),
-            message.getContent(),
-            message.getIsFromAI(),
-            "SENT", // status
-            message.getId(), // messageId
-            message.getTimestamp(), // timestamp
-            "AI", // conversationStatus
-            false, // isTyping
-            null // typingMessage
-        );
-    }
 
     /**
      * Update summary khi conversation có thêm nhiều messages
@@ -544,9 +559,6 @@ public class ChatServiceImpl implements ChatService {
         return getDefaultSystemPrompt();
     }
 
-    private String loadSystemPromptForSummary() {
-        return "Bạn là trợ lý AI chuyên về chăm sóc thú cưng. Hãy tóm tắt cuộc trò chuyện một cách chính xác và hữu ích.";
-    }
 
     private String getDefaultSystemPrompt() {
         return """

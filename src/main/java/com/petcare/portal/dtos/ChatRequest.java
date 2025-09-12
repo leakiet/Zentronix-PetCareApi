@@ -7,6 +7,7 @@ import lombok.*;
 public class ChatRequest {
     private Long   conversationId;   // null nếu guest
     private String message;
+    private String senderRole;       // "PET_OWNER", "EMP", etc.
 
     // Status fields for typing indicator
     private String  status;          // "SENT", "TYPING_START", "TYPING_END"

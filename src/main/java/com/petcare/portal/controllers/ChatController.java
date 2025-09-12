@@ -17,11 +17,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
+import com.petcare.portal.entities.ChatMessage;
 import com.petcare.portal.entities.Conversation;
 import com.petcare.portal.repositories.ChatMessageRepository;
 import com.petcare.portal.repositories.ConversationRepository;
 import com.petcare.portal.services.ChatService;
 import com.petcare.portal.services.impl.ChatServiceImpl;
+
+import org.springframework.data.domain.Page;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,7 +54,7 @@ public class ChatController {
 
     /**
      * Endpoint để lấy danh sách tin nhắn trong một cuộc trò chuyện.
-     * @param conversationId ID của cuộc trò chuyện.
+     * @param conversationId ID của cuộc trò chu	yện.
      * @return Danh sách tin nhắn.
      */
     @GetMapping("/messages")
@@ -62,6 +65,81 @@ public class ChatController {
     }
 
     /**
+     * Endpoint để lấy tin nhắn phân trang.
+     * @param conversationId ID của cuộc trò chuyện.
+     * @param page Trang (bắt đầu từ 0).
+     * @param size Số tin nhắn mỗi trang.
+     * @return Page chứa danh sách tin nhắn.
+     */
+    @GetMapping("/messages-paged")
+    public ResponseEntity<Page<ChatResponse>> getMessagesPaged(
+            @RequestParam("conversationId") Long conversationId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+
+        try {
+            // Import Page và PageRequest
+            org.springframework.data.domain.Page<ChatMessage> messagePage = chatMessageRepository
+                .findByConversationOrderByTimestampDesc(
+                    conversationRepository.findById(conversationId).orElse(null),
+                    org.springframework.data.domain.PageRequest.of(page, size)
+                );
+
+            org.springframework.data.domain.Page<ChatResponse> responsePage = messagePage.map(this::convertToChatResponse);
+            return ResponseEntity.ok(responsePage);
+
+        } catch (Exception e) {
+            log.error("Error fetching paged messages for conversation: " + conversationId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Endpoint để lấy trạng thái conversation.
+     * @param conversationId ID của cuộc trò chuyện.
+     * @return Trạng thái conversation ("AI", "EMP", "WAITING_EMP").
+     */
+    @GetMapping("/status")
+    public ResponseEntity<String> getConversationStatus(@RequestParam("conversationId") Long conversationId) {
+        try {
+            // Verify conversation exists
+            conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found: " + conversationId));
+
+            // Logic để xác định trạng thái conversation
+            // Có thể dựa trên các yếu tố như có employee đang chat không, v.v.
+            String status = "AI"; // Default to AI
+
+            // Nếu có logic phức tạp hơn, có thể implement sau
+            // Ví dụ: kiểm tra xem có employee đang chat với conversation này không
+
+            return ResponseEntity.ok(status);
+
+        } catch (Exception e) {
+            log.error("Error fetching conversation status for conversation: " + conversationId, e);
+            return ResponseEntity.badRequest().body("AI");
+        }
+    }
+
+    /**
+     * Convert ChatMessage to ChatResponse
+     */
+    private ChatResponse convertToChatResponse(ChatMessage message) {
+        ChatResponse response = new ChatResponse();
+        response.setConversationId(message.getConversation().getId());
+        response.setSender(message.getSenderName());
+        response.setMessage(message.getContent()); // Map content to message
+        response.setIsFromAI(message.getIsFromAI());
+        response.setStatus("SENT");
+        response.setMessageId(message.getId());
+        response.setTimestamp(message.getTimestamp());
+        response.setConversationStatus("AI"); // Default status
+        response.setIsTyping(false);
+        response.setTypingMessage(null);
+        return response;
+    }
+
+    /**
      * Endpoint to get conversation IDs for a user by email.
      * @param userEmail User's email.
      * @return List of conversation IDs.
@@ -69,7 +147,7 @@ public class ChatController {
     @GetMapping("/conversations")
     public ResponseEntity<List<Long>> getConversations(
             @RequestParam("userEmail") String userEmail) {
-        List<Long> conversationIds = chatService.getConversationsByUser(userEmail);
+        List<Long> conversationIds = chatService.getConversationsByEmail(userEmail);
         return ResponseEntity.ok(conversationIds);
     }
 

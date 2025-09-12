@@ -8,5 +8,5 @@ import java.util.List;
 public interface ChatService {
     ChatResponse           sendMessage(String email, ChatRequest request);
     List<ChatResponse>     getMessagesByConversation(Long conversationId);
-    List<Long>             getConversationsByUser(String email);
+    List<Long>             getConversationsByEmail(String email);
 }
