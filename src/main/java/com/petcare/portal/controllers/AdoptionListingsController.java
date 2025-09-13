@@ -1,6 +1,7 @@
 package com.petcare.portal.controllers;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -60,6 +61,22 @@ public class AdoptionListingsController {
       return ResponseEntity.ok(responses);
     } catch (Exception e) {
       return ResponseEntity.status(500).body(null);
+    }
+  }
+
+  @PutMapping("/{listingId}/approve")
+  public ResponseEntity<?> approveAdoptionRequest(@PathVariable("listingId") Long listingId,
+      @RequestBody Map<String, Long> requestBody) {
+    try {
+      Long requestId = requestBody.get("requestId");
+      Long ownerId = requestBody.get("ownerId");
+      if (requestId == null || ownerId == null) {
+        return ResponseEntity.badRequest().body("requestId and ownerId are required");
+      }
+      AdoptionListingsResponse response = adoptionListingsService.approveAdoptionRequest(listingId, requestId, ownerId);
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body("Internal server error: " + e.getMessage());
     }
   }
 

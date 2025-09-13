@@ -1,7 +1,9 @@
 package com.petcare.portal.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
+import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.dtos.AdoptionRequestDtos.AdoptionRequestResponse;
 import com.petcare.portal.entities.AdoptionListing;
 import com.petcare.portal.entities.AdoptionRequest;
@@ -16,4 +18,6 @@ public interface AdoptionRequestService {
   List<AdoptionRequest> getAllAdoptionRequests();
   List<AdoptionRequest> getRequestsByAdoptionListingId(Long adoptionListingId);
   List<AdoptionRequest> getRequestsByShelterId(Long shelterId);
+  AdoptionListingsResponse approveRequestAndRejectOthers(Long requestId, Long ownerId);
+  List<AdoptionRequest> getRequestsByOwnerId(Long ownerId, LocalDateTime updatedAfter);
 }

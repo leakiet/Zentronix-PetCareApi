@@ -1,6 +1,8 @@
 package com.petcare.portal.controllers;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.dtos.AdoptionRequestDtos.AdoptionRequestRes;
 import com.petcare.portal.dtos.AdoptionRequestDtos.AdoptionRequestResponse;
 import com.petcare.portal.entities.AdoptionRequest;
@@ -31,12 +34,11 @@ public class AdoptionRequestController {
     public ResponseEntity<?> createAdoptionRequest(@RequestBody AdoptionRequestRes dto) {
         try {
             AdoptionRequest request = adoptionRequestService.createAdoptionRequest(
-                dto.getOwnerId(), 
-                dto.getAdoptionListingId(), 
-                dto.getShelterId(),
-                dto.getMessage(), 
-                dto.getDistance()
-            );
+                    dto.getOwnerId(),
+                    dto.getAdoptionListingId(),
+                    dto.getShelterId(),
+                    dto.getMessage(),
+                    dto.getDistance());
             return ResponseEntity.ok(request);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -58,8 +60,12 @@ public class AdoptionRequestController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateAdoptionRequestStatus(@PathVariable("id") Long id, @RequestParam String status) {
+    public ResponseEntity<?> updateAdoptionRequestStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> requestBody) {
         try {
+            String status = requestBody.get("status");
+            if (status == null || status.isEmpty()) {
+                return ResponseEntity.badRequest().body("status is required");
+            }
             AdoptionRequestResponse response = adoptionRequestService.updateAdoptionRequestStatus(id, status);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -108,6 +114,36 @@ public class AdoptionRequestController {
             return ResponseEntity.ok(requests);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    @GetMapping("/owner/{ownerId}")
+    public ResponseEntity<?> getRequestsByOwnerId(@PathVariable("ownerId") Long ownerId,
+            @RequestParam(required = false) LocalDateTime updatedAfter) {
+        try {
+            List<AdoptionRequest> requests = adoptionRequestService.getRequestsByOwnerId(ownerId, updatedAfter);
+            return ResponseEntity.ok(requests);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    @PutMapping("/{requestId}/approve")
+    public ResponseEntity<?> approveRequestAndRejectOthers(@PathVariable("requestId") Long requestId,
+            @RequestBody Map<String, Long> requestBody) {
+        try {
+            Long ownerId = requestBody.get("ownerId");
+            if (ownerId == null) {
+                return ResponseEntity.badRequest().body("ownerId is required");
+            }
+            AdoptionListingsResponse response = adoptionRequestService.approveRequestAndRejectOthers(requestId,
+                    ownerId);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Internal server error: " + e.getMessage());
         }
     }
 }

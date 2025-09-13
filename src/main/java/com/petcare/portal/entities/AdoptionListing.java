@@ -1,6 +1,7 @@
 package com.petcare.portal.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.petcare.portal.enums.AdoptionStatus;
 import com.petcare.portal.enums.Gender;
 import com.petcare.portal.enums.PetHealthStatus;
@@ -58,7 +59,8 @@ public class AdoptionListing extends AbstractEntity {
   private User adoptedBy;
 
   private LocalDateTime adoptedAt;
-
+  
+  @JsonIgnore
   @OneToOne
   @JoinColumn(name = "approved_request_id")
   private AdoptionRequest approvedRequest;

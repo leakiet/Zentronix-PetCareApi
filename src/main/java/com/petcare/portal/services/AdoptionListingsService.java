@@ -15,4 +15,5 @@ public interface AdoptionListingsService {
   Page<AdoptionListingsResponse> getAllAdoptionListings(Pageable pageable, String species, Long breedId, String gender, Integer minAge, Integer maxAge);
   void deleteAdoptionListing(Long id);
   List<AdoptionListingsResponse> getAllAdoptionByShelterId(Long shelterId);
+  AdoptionListingsResponse approveAdoptionRequest(Long listingId, Long requestId, Long ownerId);
 }

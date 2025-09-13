@@ -1,5 +1,6 @@
 package com.petcare.portal.repositories;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,4 +20,10 @@ public interface AdoptionRequestRepository extends JpaRepository<AdoptionRequest
   AdoptionRequest findByUserIdAndAdoptionListingId(Long userId, Long adoptionListingId);
 
   List<AdoptionRequest> findByShelter(User shelter);
+
+  List<AdoptionRequest> findByUser(User user);
+
+  List<AdoptionRequest> findByUserAndUpdatedAtAfter(User user, LocalDateTime updatedAfter);
+
+  List<AdoptionRequest> findByAdoptionListingIdAndStatus(Long adoptionListingId, RequestStatus status);
 }
