@@ -1,5 +1,7 @@
 package com.petcare.portal.repositories;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +13,7 @@ import com.petcare.portal.enums.Gender;
 import com.petcare.portal.enums.Species;
 
 public interface AdoptionListingsRepository extends JpaRepository<AdoptionListing, Long> {
+  List<AdoptionListing> findByShelterId(Long shelterId);
 
   @Query("SELECT a FROM AdoptionListing a WHERE " +
       "(:species IS NULL OR a.species = :species) AND " +

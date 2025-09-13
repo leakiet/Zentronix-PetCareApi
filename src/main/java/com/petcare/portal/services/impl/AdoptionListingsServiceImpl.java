@@ -1,5 +1,8 @@
 package com.petcare.portal.services.impl;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -211,6 +214,45 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
       adoptionListingsRepository.deleteById(id);
     } catch (Exception e) {
       throw new RuntimeException("Error deleting adoption listing", e);
+    }
+  }
+
+  @Override
+  public List<AdoptionListingsResponse> getAllAdoptionByShelterId(Long shelterId) {
+    try {
+      List<AdoptionListing> adoptionListings = adoptionListingsRepository.findByShelterId(shelterId);
+      return adoptionListings.stream().map(adoptionListing -> {
+        AdoptionListingsResponse response = new AdoptionListingsResponse();
+        response.setId(adoptionListing.getId());
+        response.setImage(adoptionListing.getImage());
+        response.setPetName(adoptionListing.getPetName());
+        response.setDescription(adoptionListing.getDescription());
+        response.setGender(adoptionListing.getGender() != null ? adoptionListing.getGender().toString() : null);
+        response.setBreed(adoptionListing.getBreed());
+        response.setSpecies(adoptionListing.getSpecies() != null ? adoptionListing.getSpecies().toString() : null);
+        response.setStatus(adoptionListing.getStatus() != null ? adoptionListing.getStatus().toString() : null);
+        response.setAdoptionStatus(
+            adoptionListing.getAdoptionStatus() != null ? adoptionListing.getAdoptionStatus().toString() : null);
+        response.setAge(adoptionListing.getAge());
+
+        ShelterAdoptionResponse shelterDto = new ShelterAdoptionResponse();
+        if (adoptionListing.getShelter() != null) {
+          shelterDto.setId(adoptionListing.getShelter().getId());
+          shelterDto.setFirstName(adoptionListing.getShelter().getFirstName());
+          shelterDto.setLastName(adoptionListing.getShelter().getLastName());
+          shelterDto.setCompanyName(adoptionListing.getShelter().getCompanyName());
+          shelterDto.setPhone(adoptionListing.getShelter().getPhone());
+          shelterDto.setEmail(adoptionListing.getShelter().getEmail());
+          shelterDto.setGender(
+              adoptionListing.getShelter().getGender() != null ? adoptionListing.getShelter().getGender().toString()
+                  : null);
+          shelterDto.setAddress(adoptionListing.getShelter().getAddress());
+        }
+        response.setShelter(shelterDto);
+        return response;
+      }).collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException("Error retrieving adoption listings by shelter ID: " + e.getMessage(), e);
     }
   }
 

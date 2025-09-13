@@ -52,6 +52,17 @@ public class AdoptionListingsController {
     }
   }
 
+  @GetMapping("/shelter/{shelterId}")
+  public ResponseEntity<List<AdoptionListingsResponse>> getAllAdoptionByShelterId(
+      @PathVariable("shelterId") Long shelterId) {
+    try {
+      List<AdoptionListingsResponse> responses = adoptionListingsService.getAllAdoptionByShelterId(shelterId);
+      return ResponseEntity.ok(responses);
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(null);
+    }
+  }
+
   @PostMapping
   public ResponseEntity<?> createAdoptionListing(@ModelAttribute AdoptionListingsRequest request,
       @RequestParam("imageFile") MultipartFile file) {
@@ -112,7 +123,8 @@ public class AdoptionListingsController {
     try {
       Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortField);
       Pageable pageable = PageRequest.of(page, size, sort);
-      Page<AdoptionListingsResponse> responses = adoptionListingsService.getAllAdoptionListings(pageable, species, breedId, gender, minAge, maxAge);
+      Page<AdoptionListingsResponse> responses = adoptionListingsService.getAllAdoptionListings(pageable, species,
+          breedId, gender, minAge, maxAge);
       return ResponseEntity.ok(responses);
     } catch (Exception e) {
       return ResponseEntity.status(500).body(null);
