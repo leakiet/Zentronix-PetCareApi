@@ -5,15 +5,14 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import com.petcare.portal.entities.AdoptionRequest;
+import com.petcare.portal.entities.NotificationMessage;
 import com.petcare.portal.services.NotificationShelterService;
-
-import lombok.Getter;
-import lombok.Setter;
 
 @Service
 public class NotificationShelterServiceImpl implements NotificationShelterService {
   @Autowired
   private SimpMessagingTemplate messagingTemplate;
+  
 
   public void sendAdoptionRequestNotification(Long shelterId, AdoptionRequest request) {
     messagingTemplate.convertAndSend("/topic/notifications/" + shelterId, request);
@@ -28,11 +27,5 @@ public class NotificationShelterServiceImpl implements NotificationShelterServic
     messagingTemplate.convertAndSend("/topic/notifications/" + ownerId, message);
   }
 
-  @Getter
-  @Setter
-  public static class NotificationMessage {
-    private String type;
-    private String message;
-    private Long requestId;
-  }
+
 }

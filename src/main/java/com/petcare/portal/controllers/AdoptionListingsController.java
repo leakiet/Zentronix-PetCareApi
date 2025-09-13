@@ -113,15 +113,30 @@ public class AdoptionListingsController {
       @RequestParam("imageFile") MultipartFile file) {
     try {
       AdoptionListingsResponse existing = adoptionListingsService.getAdoptionListingById(id);
+
       if (existing.getImage() != null && !existing.getImage().isEmpty()) {
         imageUtils.deleteImage(existing.getImage());
       }
+
       String imageUrl = imageUtils.uploadImage(file);
+
       AdoptionListingsRequest request = new AdoptionListingsRequest();
+      request.setPetName(existing.getPetName());
+      request.setDescription(existing.getDescription());
+      request.setAge(existing.getAge());
+      request.setGender(existing.getGender());
+      request.setBreedId(existing.getBreed().getId());
+      request.setSpecies(existing.getSpecies());
+      request.setStatus(existing.getStatus());
+      request.setAdoptionStatus(existing.getAdoptionStatus());
+      request.setShelterId(existing.getShelter().getId().toString());
       request.setImage(imageUrl);
+
       AdoptionListingsResponse response = adoptionListingsService.updateAdoptionListing(id, request);
       return ResponseEntity.ok(response);
     } catch (Exception e) {
+      System.err.println("Error updating adoption listing image: " + e.getMessage());
+      e.printStackTrace();
       return ResponseEntity.status(500).body("Internal server error: " + e.getMessage());
     }
   }
