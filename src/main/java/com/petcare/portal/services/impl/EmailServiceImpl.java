@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.petcare.portal.services.EmailService;
+import com.petcare.portal.entities.Order;
 
 @Service
 public class EmailServiceImpl implements EmailService {
@@ -80,6 +81,72 @@ public class EmailServiceImpl implements EmailService {
         Green Kitchen Team
         """,
         otpCode
+    );
+
+    message.setText(body);
+    mailSender.send(message);
+  }
+
+  @Override
+  @Async
+  public void sendOrderConfirmationEmail(String toEmail, Order order) {
+    SimpleMailMessage message = new SimpleMailMessage();
+    message.setFrom(fromEmail);
+    message.setTo(toEmail);
+    message.setSubject("Zentronix PetCare - Order Confirmation");
+
+    String customerName = order.getPetOwner().getFirstName() + " " + order.getPetOwner().getLastName();
+    String orderCode = order.getOrderCode() != null ? order.getOrderCode() : "#" + order.getId();
+
+    // Build order items summary
+    StringBuilder itemsSummary = new StringBuilder();
+    order.getOrderItems().forEach(item -> {
+      itemsSummary.append(String.format("- %s (Qty: %d) - $%.2f\n",
+        item.getProduct().getName(),
+        item.getQuantity(),
+        item.getTotalPrice()));
+    });
+
+    String body = String.format(
+        """
+        Dear %s,
+
+        Thank you for your order with Zentronix PetCare!
+
+        Order Details:
+        ==============
+        Order Code: %s
+        Order Date: %s
+        Status: %s
+
+        Items Ordered:
+        %s
+        Total Amount: $%.2f
+
+        Shipping Address:
+        %s, %s, %s
+
+        Payment Method: %s
+
+        Your order is being processed and you will receive updates on the delivery status.
+
+        If you have any questions about your order, please don't hesitate to contact our customer support team.
+
+        Thank you for choosing Zentronix PetCare!
+
+        Best regards,
+        Zentronix PetCare Team
+        """,
+        customerName,
+        orderCode,
+        order.getOrderDate().toString(),
+        order.getStatus(),
+        itemsSummary.toString(),
+        order.getTotalAmount(),
+        order.getShippingAddress().getStreet(),
+        order.getShippingAddress().getWard(),
+        order.getShippingAddress().getCity(),
+        order.getPaymentMethod()
     );
 
     message.setText(body);
