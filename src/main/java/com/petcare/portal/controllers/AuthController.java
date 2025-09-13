@@ -148,6 +148,17 @@ public class AuthController {
   public ResponseEntity<RegisterResponse> registerCustomer(@Valid @RequestBody RegisterRequest registerRequest) {
     User user = mapper.map(registerRequest, User.class);
 
+    // Handle role conversion from String to Role enum
+    if (registerRequest.getRole() != null) {
+      user.setRole(com.petcare.portal.enums.Role.valueOf(registerRequest.getRole()));
+    }
+
+    // Handle address conversion from AddressRequest to Address entity
+    if (registerRequest.getAddress() != null) {
+      com.petcare.portal.entities.Address address = mapper.map(registerRequest.getAddress(), com.petcare.portal.entities.Address.class);
+      user.setAddress(address);
+    }
+
     User registereddUser = userService.registerUser(user);
 
     RegisterResponse response = new RegisterResponse();
