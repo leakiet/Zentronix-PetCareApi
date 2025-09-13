@@ -10,7 +10,7 @@ import lombok.Setter;
 public class AdoptionListingsResponse {
   private Long id;
   private String image;
-  private String shelterId;
+  private ShelterAdoptionResponse shelter;
   private String petName;
   private String description;
   private String gender;
