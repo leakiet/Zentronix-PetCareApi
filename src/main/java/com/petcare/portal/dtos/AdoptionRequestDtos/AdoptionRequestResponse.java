@@ -1,5 +1,7 @@
 package com.petcare.portal.dtos.AdoptionRequestDtos;
 
+import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,7 +10,7 @@ import lombok.Setter;
 public class AdoptionRequestResponse {
   private Long id;
   private OwnerAdoptionRequest owner;
-  private Long adoptionListingId;
+  private AdoptionListingsResponse adoptionListing;
   private String status;
   private String message;
   private String distance;

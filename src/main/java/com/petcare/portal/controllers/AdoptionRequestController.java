@@ -30,7 +30,13 @@ public class AdoptionRequestController {
     @PostMapping
     public ResponseEntity<?> createAdoptionRequest(@RequestBody AdoptionRequestRes dto) {
         try {
-            AdoptionRequest request = adoptionRequestService.createAdoptionRequest(dto.getOwnerId(), dto.getAdoptionListingId(), dto.getMessage(), dto.getDistance());
+            AdoptionRequest request = adoptionRequestService.createAdoptionRequest(
+                dto.getOwnerId(), 
+                dto.getAdoptionListingId(), 
+                dto.getShelterId(),
+                dto.getMessage(), 
+                dto.getDistance()
+            );
             return ResponseEntity.ok(request);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -40,7 +46,7 @@ public class AdoptionRequestController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getAdoptionRequestById(@PathVariable Long id) {
+    public ResponseEntity<?> getAdoptionRequestById(@PathVariable("id") Long id) {
         try {
             AdoptionRequestResponse response = adoptionRequestService.getAdoptionRequestById(id);
             return ResponseEntity.ok(response);
@@ -52,7 +58,7 @@ public class AdoptionRequestController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateAdoptionRequestStatus(@PathVariable Long id, @RequestParam String status) {
+    public ResponseEntity<?> updateAdoptionRequestStatus(@PathVariable("id") Long id, @RequestParam String status) {
         try {
             AdoptionRequestResponse response = adoptionRequestService.updateAdoptionRequestStatus(id, status);
             return ResponseEntity.ok(response);
@@ -64,7 +70,7 @@ public class AdoptionRequestController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteAdoptionRequest(@PathVariable Long id) {
+    public ResponseEntity<?> deleteAdoptionRequest(@PathVariable("id") Long id) {
         try {
             adoptionRequestService.deleteAdoptionRequest(id);
             return ResponseEntity.noContent().build();
@@ -86,9 +92,19 @@ public class AdoptionRequestController {
     }
 
     @GetMapping("/listing/{adoptionListingId}")
-    public ResponseEntity<?> getRequestsByAdoptionListingId(@PathVariable Long adoptionListingId) {
+    public ResponseEntity<?> getRequestsByAdoptionListingId(@PathVariable("adoptionListingId") Long adoptionListingId) {
         try {
             List<AdoptionRequest> requests = adoptionRequestService.getRequestsByAdoptionListingId(adoptionListingId);
+            return ResponseEntity.ok(requests);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");
+        }
+    }
+
+    @GetMapping("/shelter/{shelterId}")
+    public ResponseEntity<?> getRequestsByShelterId(@PathVariable("shelterId") Long shelterId) {
+        try {
+            List<AdoptionRequest> requests = adoptionRequestService.getRequestsByShelterId(shelterId);
             return ResponseEntity.ok(requests);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error");

@@ -8,6 +8,7 @@ import lombok.Setter;
 public class AdoptionRequestRes {
   private Long ownerId;
   private Long adoptionListingId;
+  private Long shelterId;
   private String message;
   private String distance;
 }

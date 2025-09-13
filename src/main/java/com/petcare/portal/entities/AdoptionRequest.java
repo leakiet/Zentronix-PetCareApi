@@ -31,6 +31,10 @@ public class AdoptionRequest extends AbstractEntity {
   @JoinColumn(name = "adoption_listing_id")
   private AdoptionListing adoptionListing;
 
+  @ManyToOne
+  @JoinColumn(name = "shelter_id")
+  private User shelter;
+
   @Enumerated(EnumType.STRING)
   private RequestStatus status = RequestStatus.PENDING;
 
