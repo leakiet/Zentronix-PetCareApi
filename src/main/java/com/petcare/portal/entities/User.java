@@ -75,6 +75,10 @@ public class User extends AbstractEntity {
 	@JsonManagedReference
 	private List<Pet> pets;
 
+	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonManagedReference
+	private List<Image> images;
+
 	public String getFullName() {
 		return this.firstName + " " + this.lastName;
 	}

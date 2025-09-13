@@ -13,6 +13,7 @@ import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.repositories.BreedRepository;
 import com.petcare.portal.dtos.petDto.createRequest;
 import com.petcare.portal.dtos.petDto.updateRequest;
+import com.petcare.portal.dtos.petDto.updateImageRequest;
 import com.petcare.portal.enums.Species;
 import com.petcare.portal.enums.Gender;
 
@@ -131,6 +132,22 @@ public class PetServiceImpl implements PetService {
       petRepository.save(pet);
     } catch (Exception e) {
       throw new RuntimeException("Error deleting pet: " + e.getMessage(), e);
+    }
+  }
+
+  @Override
+  public Pet updatePetImage(Long petId, updateImageRequest request) {
+    try {
+      // Check if the pet exists
+      Pet existingPet = getPetById(petId);
+
+      // Update the image URL
+      existingPet.setImage(request.getImage());
+
+      // Save the updated pet
+      return petRepository.save(existingPet);
+    } catch (Exception e) {
+      throw new RuntimeException("Error updating pet image: " + e.getMessage(), e);
     }
   }
 

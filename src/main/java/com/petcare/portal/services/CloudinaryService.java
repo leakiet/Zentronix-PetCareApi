@@ -16,9 +16,10 @@ public class CloudinaryService {
 
   private final Cloudinary cloudinary;
 
-  public Map upload(MultipartFile file) {
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> upload(MultipartFile file) {
     try {
-      Map data = this.cloudinary.uploader().upload(file.getBytes(), Map.of());
+      Map<String, Object> data = (Map<String, Object>) this.cloudinary.uploader().upload(file.getBytes(), Map.of());
       return data;
     } catch (IOException io) {
       throw new RuntimeException("Image upload fail");
@@ -32,6 +33,11 @@ public class CloudinaryService {
     } catch (IOException e) {
       throw new RuntimeException("Image deletion failed: " + e.getMessage());
     }
+  }
+
+  public String generateDownloadUrl(String publicId, String format) {
+    String baseUrl = cloudinary.url().publicId(publicId).format(format).generate();
+    return baseUrl + "?fl=attachment";
   }
 
   private String extractPublicId(String imageUrl) {
