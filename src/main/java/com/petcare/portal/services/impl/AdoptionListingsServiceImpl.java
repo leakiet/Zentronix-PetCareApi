@@ -1,5 +1,6 @@
 package com.petcare.portal.services.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -13,6 +14,7 @@ import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsRequest;
 import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.dtos.AdoptionListingsDto.ShelterAdoptionResponse;
 import com.petcare.portal.entities.AdoptionListing;
+import com.petcare.portal.entities.AdoptionRequest;
 import com.petcare.portal.entities.Breed;
 import com.petcare.portal.entities.User;
 import com.petcare.portal.enums.AdoptionStatus;
@@ -20,6 +22,7 @@ import com.petcare.portal.enums.Gender;
 import com.petcare.portal.enums.PetHealthStatus;
 import com.petcare.portal.enums.Species;
 import com.petcare.portal.repositories.AdoptionListingsRepository;
+import com.petcare.portal.repositories.AdoptionRequestRepository;
 import com.petcare.portal.repositories.BreedRepository;
 import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.AdoptionListingsService;
@@ -29,6 +32,9 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
 
   @Autowired
   private AdoptionListingsRepository adoptionListingsRepository;
+
+  @Autowired
+  private AdoptionRequestRepository adoptionRequestRepository;
 
   @Autowired
   private BreedRepository breedRepository;
@@ -253,6 +259,56 @@ public class AdoptionListingsServiceImpl implements AdoptionListingsService {
       }).collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Error retrieving adoption listings by shelter ID: " + e.getMessage(), e);
+    }
+  }
+
+  @Override
+  public AdoptionListingsResponse approveAdoptionRequest(Long listingId, Long requestId, Long ownerId) {
+    try {
+      AdoptionListing adoptionListing = adoptionListingsRepository.findById(listingId)
+          .orElseThrow(() -> new RuntimeException("Adoption listing not found"));
+
+      AdoptionRequest adoptionRequest = adoptionRequestRepository.findById(requestId)
+          .orElseThrow(() -> new RuntimeException("Adoption request not found"));
+
+      User owner = userRepository.findById(ownerId)
+          .orElseThrow(() -> new RuntimeException("Owner not found"));
+
+      adoptionListing.setAdoptedBy(owner);
+      adoptionListing.setAdoptedAt(LocalDateTime.now());
+      adoptionListing.setApprovedRequest(adoptionRequest);
+      adoptionListing.setAdoptionStatus(AdoptionStatus.COMPLETED); 
+
+      AdoptionListing updatedListing = adoptionListingsRepository.save(adoptionListing);
+
+      AdoptionListingsResponse response = new AdoptionListingsResponse();
+      response.setId(updatedListing.getId());
+      response.setImage(updatedListing.getImage());
+      response.setPetName(updatedListing.getPetName());
+      response.setDescription(updatedListing.getDescription());
+      response.setGender(updatedListing.getGender() != null ? updatedListing.getGender().toString() : null);
+      response.setBreed(updatedListing.getBreed());
+      response.setSpecies(updatedListing.getSpecies() != null ? updatedListing.getSpecies().toString() : null);
+      response.setStatus(updatedListing.getStatus() != null ? updatedListing.getStatus().toString() : null);
+      response.setAdoptionStatus(updatedListing.getAdoptionStatus() != null ? updatedListing.getAdoptionStatus().toString() : null);
+      response.setAge(updatedListing.getAge());
+
+      ShelterAdoptionResponse shelterDto = new ShelterAdoptionResponse();
+      if (updatedListing.getShelter() != null) {
+        shelterDto.setId(updatedListing.getShelter().getId());
+        shelterDto.setFirstName(updatedListing.getShelter().getFirstName());
+        shelterDto.setLastName(updatedListing.getShelter().getLastName());
+        shelterDto.setCompanyName(updatedListing.getShelter().getCompanyName());
+        shelterDto.setPhone(updatedListing.getShelter().getPhone());
+        shelterDto.setEmail(updatedListing.getShelter().getEmail());
+        shelterDto.setGender(updatedListing.getShelter().getGender() != null ? updatedListing.getShelter().getGender().toString() : null);
+        shelterDto.setAddress(updatedListing.getShelter().getAddress());
+      }
+      response.setShelter(shelterDto);
+
+      return response;
+    } catch (Exception e) {
+      throw new RuntimeException("Error approving adoption request: " + e.getMessage(), e);
     }
   }
 

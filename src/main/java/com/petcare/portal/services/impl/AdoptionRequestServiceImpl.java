@@ -1,11 +1,15 @@
 package com.petcare.portal.services.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsResponse;
 import com.petcare.portal.dtos.AdoptionRequestDtos.AdoptionRequestResponse;
 import com.petcare.portal.dtos.AdoptionRequestDtos.OwnerAdoptionRequest;
 import com.petcare.portal.entities.AdoptionListing;
@@ -15,6 +19,7 @@ import com.petcare.portal.enums.RequestStatus;
 import com.petcare.portal.repositories.AdoptionListingsRepository;
 import com.petcare.portal.repositories.AdoptionRequestRepository;
 import com.petcare.portal.repositories.UserRepository;
+import com.petcare.portal.services.AdoptionListingsService;
 import com.petcare.portal.services.AdoptionRequestService;
 import com.petcare.portal.services.NotificationShelterService;
 
@@ -29,6 +34,9 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
 
   @Autowired
   private AdoptionListingsRepository adoptionListingsRepository;
+
+  @Autowired
+  private AdoptionListingsService adoptionListingsService; // Add this
 
   @Autowired
   private ModelMapper modelMapper;
@@ -46,7 +54,8 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
   }
 
   @Override
-  public AdoptionRequest createAdoptionRequest(Long ownerId, Long adoptionListingId, Long shelterId, String message, String distance) {
+  public AdoptionRequest createAdoptionRequest(Long ownerId, Long adoptionListingId, Long shelterId, String message,
+      String distance) {
     try {
       User owner = userRepository.findById(ownerId).orElseThrow(() -> new RuntimeException("Owner not found"));
       AdoptionListing listing = adoptionListingsRepository.findById(adoptionListingId)
@@ -153,6 +162,57 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
       return adoptionRequestRepository.findByShelter(shelter);
     } catch (Exception e) {
       throw new RuntimeException("Error fetching requests by shelter ID: " + e.getMessage());
+    }
+  }
+
+  @Override
+  public List<AdoptionRequest> getRequestsByOwnerId(Long ownerId, LocalDateTime updatedAfter) {
+    try {
+      User owner = userRepository.findById(ownerId)
+          .orElseThrow(() -> new RuntimeException("Owner not found"));
+      List<AdoptionRequest> requests;
+      if (updatedAfter != null) {
+        requests = adoptionRequestRepository.findByUserAndUpdatedAtAfter(owner, updatedAfter);
+      } else {
+        requests = adoptionRequestRepository.findByUser(owner);
+      }
+      return requests.stream()
+          .filter(r -> r.getStatus() == RequestStatus.APPROVED || r.getStatus() == RequestStatus.REJECTED)
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException("Error fetching requests by owner ID: " + e.getMessage());
+    }
+  }
+
+  @Override
+  @Transactional
+  public AdoptionListingsResponse approveRequestAndRejectOthers(Long requestId, Long ownerId) {
+    try {
+      AdoptionRequest requestToApprove = adoptionRequestRepository.findById(requestId)
+          .orElseThrow(() -> new RuntimeException("Adoption request not found"));
+
+      Long listingId = requestToApprove.getAdoptionListing().getId();
+
+      requestToApprove.setStatus(RequestStatus.APPROVED);
+      adoptionRequestRepository.save(requestToApprove);
+
+      notificationService.sendAdoptionStatusNotification(requestToApprove.getUser().getId(), "APPROVED",
+          requestToApprove);
+
+      List<AdoptionRequest> pendingRequests = adoptionRequestRepository.findByAdoptionListingIdAndStatus(listingId,
+          RequestStatus.PENDING);
+      for (AdoptionRequest req : pendingRequests) {
+        if (!req.getId().equals(requestId)) {
+          req.setStatus(RequestStatus.REJECTED);
+          adoptionRequestRepository.save(req);
+
+          notificationService.sendAdoptionStatusNotification(req.getUser().getId(), "REJECTED", req);
+        }
+      }
+
+      return adoptionListingsService.approveAdoptionRequest(listingId, requestId, ownerId);
+    } catch (Exception e) {
+      throw new RuntimeException("Error approving request and rejecting others: " + e.getMessage(), e);
     }
   }
 }
