@@ -16,6 +16,7 @@ import com.petcare.portal.entities.Pet;
 import com.petcare.portal.services.PetService;
 import com.petcare.portal.dtos.petDto.createRequest;
 import com.petcare.portal.dtos.petDto.updateRequest;
+import com.petcare.portal.dtos.petDto.updateImageRequest;
 import jakarta.validation.Valid;
 
 
@@ -76,5 +77,15 @@ public class PetController {
       return ResponseEntity.badRequest().build();
     }
   }
-  
+
+  @PutMapping("/update-image/{petId}")
+  public ResponseEntity<Pet> updatePetImage(@PathVariable("petId") Long petId, @Valid @RequestBody updateImageRequest request) {
+    try {
+      Pet updatedPet = petService.updatePetImage(petId, request);
+      return ResponseEntity.ok(updatedPet);
+    } catch (Exception e) {
+      return ResponseEntity.badRequest().build();
+    }
+  }
+
 }

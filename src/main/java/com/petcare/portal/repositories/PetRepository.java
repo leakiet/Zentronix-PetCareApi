@@ -11,4 +11,5 @@ public interface PetRepository extends JpaRepository<Pet, Long> {
   Pet findById(long id);
   List<Pet> findByOwner(User owner);
   List<Pet> findByOwnerAndIsDeletedFalse(User owner);
+  boolean existsByImageAndIsDeletedFalse(String image);
 }
