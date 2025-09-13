@@ -8,11 +8,12 @@ import com.petcare.portal.entities.AdoptionRequest;
 import com.petcare.portal.enums.RequestStatus;
 
 public interface AdoptionRequestService {
-  AdoptionRequest createAdoptionRequest(Long ownerId, Long adoptionListingId, String message, String distance);
+  AdoptionRequest createAdoptionRequest(Long ownerId, Long adoptionListingId, Long shelterId, String message, String distance);
   AdoptionRequestResponse getAdoptionRequestById(Long id);
   List<AdoptionRequest> findByAdoptionListingAndStatus(AdoptionListing listing, RequestStatus status);
   AdoptionRequestResponse updateAdoptionRequestStatus(Long id, String status);
   void deleteAdoptionRequest(Long id);
   List<AdoptionRequest> getAllAdoptionRequests();
   List<AdoptionRequest> getRequestsByAdoptionListingId(Long adoptionListingId);
+  List<AdoptionRequest> getRequestsByShelterId(Long shelterId);
 }

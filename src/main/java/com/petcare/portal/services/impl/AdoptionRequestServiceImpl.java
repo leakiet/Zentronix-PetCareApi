@@ -46,7 +46,7 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
   }
 
   @Override
-  public AdoptionRequest createAdoptionRequest(Long ownerId, Long adoptionListingId, String message, String distance) {
+  public AdoptionRequest createAdoptionRequest(Long ownerId, Long adoptionListingId, Long shelterId, String message, String distance) {
     try {
       User owner = userRepository.findById(ownerId).orElseThrow(() -> new RuntimeException("Owner not found"));
       AdoptionListing listing = adoptionListingsRepository.findById(adoptionListingId)
@@ -58,8 +58,12 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
         throw new RuntimeException("You have already sent a request for this listing");
       }
 
+      User shelter = userRepository.findById(shelterId)
+          .orElseThrow(() -> new RuntimeException("Shelter not found"));
+
       AdoptionRequest request = new AdoptionRequest();
       request.setUser(owner);
+      request.setShelter(shelter);
       request.setAdoptionListing(listing);
       request.setMessage(message);
       request.setDistance(distance);
@@ -67,11 +71,7 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
 
       AdoptionRequest savedRequest = adoptionRequestRepository.save(request);
 
-      Long shelterId = listing.getShelter().getId();
-      String notificationMessage = "You have a new adoption request from " + owner.getFirstName() + " "
-          + owner.getLastName() +
-          " for pet: " + listing.getPetName() + ". Distance: " + distance;
-      notificationService.sendAdoptionRequestNotification(shelterId, notificationMessage);
+      notificationService.sendAdoptionRequestNotification(shelter.getId(), savedRequest);
 
       return savedRequest;
     } catch (Exception e) {
@@ -143,5 +143,16 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
     response.setStatus(request.getStatus().toString());
 
     return response;
+  }
+
+  @Override
+  public List<AdoptionRequest> getRequestsByShelterId(Long shelterId) {
+    try {
+      User shelter = userRepository.findById(shelterId)
+          .orElseThrow(() -> new RuntimeException("Shelter not found"));
+      return adoptionRequestRepository.findByShelter(shelter);
+    } catch (Exception e) {
+      throw new RuntimeException("Error fetching requests by shelter ID: " + e.getMessage());
+    }
   }
 }
