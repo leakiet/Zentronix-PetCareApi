@@ -59,7 +59,7 @@ public class ChatController {
      */
     @GetMapping("/messages")
     public ResponseEntity<List<ChatResponse>> getMessages(
-            @RequestParam("conversationId") Long conversationId) {
+            @RequestParam(value = "conversationId", required = true) Long conversationId) {
         List<ChatResponse> messages = chatService.getMessagesByConversation(conversationId);
         return ResponseEntity.ok(messages);
     }
@@ -73,7 +73,7 @@ public class ChatController {
      */
     @GetMapping("/messages-paged")
     public ResponseEntity<Page<ChatResponse>> getMessagesPaged(
-            @RequestParam("conversationId") Long conversationId,
+            @RequestParam(value = "conversationId", required = true) Long conversationId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
 
@@ -100,7 +100,7 @@ public class ChatController {
      * @return Trạng thái conversation ("AI", "EMP", "WAITING_EMP").
      */
     @GetMapping("/status")
-    public ResponseEntity<String> getConversationStatus(@RequestParam("conversationId") Long conversationId) {
+    public ResponseEntity<String> getConversationStatus(@RequestParam(value = "conversationId", required = true) Long conversationId) {
         try {
             // Verify conversation exists
             conversationRepository.findById(conversationId)
@@ -146,7 +146,7 @@ public class ChatController {
      */
     @GetMapping("/conversations")
     public ResponseEntity<List<Long>> getConversations(
-            @RequestParam("userEmail") String userEmail) {
+            @RequestParam(value = "userEmail", required = true) String userEmail) {
         List<Long> conversationIds = chatService.getConversationsByEmail(userEmail);
         return ResponseEntity.ok(conversationIds);
     }
@@ -155,7 +155,7 @@ public class ChatController {
      * Debug endpoint để kiểm tra memory và summary
      */
     @GetMapping("/debug/{conversationId}")
-    public ResponseEntity<Map<String, Object>> debugConversation(@PathVariable Long conversationId) {
+    public ResponseEntity<Map<String, Object>> debugConversation(@PathVariable(value = "conversationId", required = true) Long conversationId) {
         try {
             Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
@@ -183,7 +183,7 @@ public class ChatController {
      * Force regenerate summary for debugging
      */
     @PostMapping("/regenerate-summary/{conversationId}")
-    public ResponseEntity<Map<String, Object>> regenerateSummary(@PathVariable Long conversationId) {
+    public ResponseEntity<Map<String, Object>> regenerateSummary(@PathVariable(value = "conversationId", required = true) Long conversationId) {
         try {
             if (!(chatService instanceof ChatServiceImpl)) {
                 throw new IllegalStateException("ChatService is not ChatServiceImpl");
@@ -210,10 +210,10 @@ public class ChatController {
      */
     @PostMapping("/typing")
     public ResponseEntity<Map<String, Object>> updateTypingStatus(
-            @RequestParam Long conversationId,
-            @RequestParam String clientId,
-            @RequestParam Boolean isTyping,
-            @RequestParam(required = false) Long customerId) {
+            @RequestParam(value = "conversationId", required = true) Long conversationId,
+            @RequestParam(value = "clientId", required = true) String clientId,
+            @RequestParam(value = "isTyping", required = true) Boolean isTyping,
+            @RequestParam(value = "customerId", required = false) Long customerId) {
 
         try {
             Map<String, Object> result = new HashMap<>();
@@ -239,7 +239,7 @@ public class ChatController {
      * Get typing status for a conversation
      */
     @GetMapping("/typing/{conversationId}")
-    public ResponseEntity<Map<String, Object>> getTypingStatus(@PathVariable Long conversationId) {
+    public ResponseEntity<Map<String, Object>> getTypingStatus(@PathVariable(value = "conversationId", required = true) Long conversationId) {
         try {
             if (!(chatService instanceof ChatServiceImpl)) {
                 throw new IllegalStateException("ChatService is not ChatServiceImpl");
@@ -293,7 +293,7 @@ public class ChatController {
      * Simulate different typing indicator approaches
      */
     @GetMapping("/demo-typing/{approach}")
-    public ResponseEntity<Map<String, Object>> demoTypingIndicator(@PathVariable String approach) {
+    public ResponseEntity<Map<String, Object>> demoTypingIndicator(@PathVariable(value = "approach", required = true) String approach) {
         Map<String, Object> demo = new HashMap<>();
 
         switch (approach.toLowerCase()) {
@@ -405,8 +405,8 @@ public class ChatController {
      */
     @PostMapping("/test-transaction")
     public ResponseEntity<Map<String, Object>> testTransactionFix(
-            @RequestParam String userEmail,
-            @RequestParam String testMessage) {
+            @RequestParam(value = "userEmail", required = true) String userEmail,
+            @RequestParam(value = "testMessage", required = true) String testMessage) {
 
         Map<String, Object> result = new HashMap<>();
         result.put("testStarted", true);
@@ -453,8 +453,8 @@ public class ChatController {
      */
     @PostMapping("/test-function-calling")
     public ResponseEntity<Map<String, Object>> testFunctionCalling(
-            @RequestParam String userEmail,
-            @RequestParam String testMessage) {
+            @RequestParam(value = "userEmail", required = true) String userEmail,
+            @RequestParam(value = "testMessage", required = true) String testMessage) {
 
         Map<String, Object> result = new HashMap<>();
         result.put("testType", "Function Calling Test");
