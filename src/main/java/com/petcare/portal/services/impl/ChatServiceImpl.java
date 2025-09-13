@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -962,6 +963,10 @@ public class ChatServiceImpl implements ChatService {
      */
     private void sendTypingStartEvent(Conversation conversation, String typingMessage) {
         try {
+            // Update typing state in memory
+            TypingState typingState = new TypingState(true, typingMessage, "PetCare AI");
+            typingStateMap.put(conversation.getId(), typingState);
+
             Map<String, Object> typingEvent = new HashMap<>();
             typingEvent.put("type", "TYPING_START");
             typingEvent.put("conversationId", conversation.getId());
@@ -986,6 +991,17 @@ public class ChatServiceImpl implements ChatService {
      */
     private void sendTypingStopEvent(Conversation conversation) {
         try {
+            // Update typing state in memory
+            TypingState typingState = typingStateMap.get(conversation.getId());
+            if (typingState != null) {
+                typingState.setTyping(false);
+                typingState.setTimestamp(LocalDateTime.now());
+            } else {
+                // Create new typing state if not exists
+                typingState = new TypingState(false, "", "PetCare AI");
+                typingStateMap.put(conversation.getId(), typingState);
+            }
+
             Map<String, Object> typingEvent = new HashMap<>();
             typingEvent.put("type", "TYPING_STOP");
             typingEvent.put("conversationId", conversation.getId());
@@ -1063,6 +1079,82 @@ public class ChatServiceImpl implements ChatService {
 
         // Default typing message
         return "AI is advising about your pet...";
+    }
+
+    // ===== TYPING STATE MANAGEMENT =====
+
+    /**
+     * Class to store typing state for each conversation
+     */
+    private static class TypingState {
+        private boolean isTyping;
+        private String typingMessage;
+        private String sender;
+        private LocalDateTime timestamp;
+
+        public TypingState(boolean isTyping, String typingMessage, String sender) {
+            this.isTyping = isTyping;
+            this.typingMessage = typingMessage;
+            this.sender = sender;
+            this.timestamp = LocalDateTime.now();
+        }
+
+        // Getters
+        public boolean isTyping() { return isTyping; }
+        public String getTypingMessage() { return typingMessage; }
+        public String getSender() { return sender; }
+        public LocalDateTime getTimestamp() { return timestamp; }
+
+        // Setters
+        public void setTyping(boolean isTyping) { this.isTyping = isTyping; }
+        public void setTypingMessage(String typingMessage) { this.typingMessage = typingMessage; }
+        public void setSender(String sender) { this.sender = sender; }
+        public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    }
+
+    /**
+     * Thread-safe map to store typing states for all conversations
+     * Key: conversationId, Value: TypingState
+     */
+    private final Map<Long, TypingState> typingStateMap = new ConcurrentHashMap<>();
+
+    /**
+     * Get current typing status for a conversation
+     * Returns snapshot of current typing state
+     */
+    public Map<String, Object> getTypingStatus(Long conversationId) {
+        Map<String, Object> statusResponse = new HashMap<>();
+        statusResponse.put("conversationId", conversationId);
+        statusResponse.put("timestamp", LocalDateTime.now());
+
+        TypingState typingState = typingStateMap.get(conversationId);
+        if (typingState != null) {
+            statusResponse.put("isTyping", typingState.isTyping());
+            statusResponse.put("typingMessage", typingState.getTypingMessage());
+            statusResponse.put("sender", typingState.getSender());
+        } else {
+            // Default state if no typing state exists
+            statusResponse.put("isTyping", false);
+            statusResponse.put("typingMessage", "");
+            statusResponse.put("sender", "PetCare AI");
+        }
+
+        return statusResponse;
+    }
+
+    /**
+     * Clean up old typing states (optional cleanup method)
+     * Can be called periodically to remove stale typing states
+     */
+    public void cleanupOldTypingStates() {
+        LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(5); // 5 minutes ago
+
+        typingStateMap.entrySet().removeIf(entry -> {
+            TypingState state = entry.getValue();
+            return state.getTimestamp().isBefore(cutoffTime);
+        });
+
+        log.debug("Cleaned up old typing states. Remaining: {}", typingStateMap.size());
     }
 
 
