@@ -241,13 +241,14 @@ public class ChatController {
     @GetMapping("/typing/{conversationId}")
     public ResponseEntity<Map<String, Object>> getTypingStatus(@PathVariable Long conversationId) {
         try {
-            Map<String, Object> result = new HashMap<>();
-            result.put("conversationId", conversationId);
-            result.put("isTyping", false); // For now, return false as we don't track real-time typing
-            result.put("typingMessage", null);
-            result.put("timestamp", java.time.LocalDateTime.now());
+            if (!(chatService instanceof ChatServiceImpl)) {
+                throw new IllegalStateException("ChatService is not ChatServiceImpl");
+            }
 
-            return ResponseEntity.ok(result);
+            ChatServiceImpl chatServiceImpl = (ChatServiceImpl) chatService;
+            Map<String, Object> typingStatus = chatServiceImpl.getTypingStatus(conversationId);
+
+            return ResponseEntity.ok(typingStatus);
         } catch (Exception e) {
             Map<String, Object> errorInfo = new HashMap<>();
             errorInfo.put("error", e.getMessage());
