@@ -380,7 +380,7 @@ public class ChatController {
             }
 
             ChatServiceImpl chatServiceImpl = (ChatServiceImpl) chatService;
-            String cleanedText = chatServiceImpl.cleanMarkdownForTesting(markdownText);
+            String cleanedText = chatServiceImpl.cleanMarkdown(markdownText);
 
             Map<String, Object> result = new HashMap<>();
             result.put("original", markdownText);
@@ -443,6 +443,108 @@ public class ChatController {
             }
 
             log.error("Transaction test failed", e);
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    /**
+     * Test endpoint để kiểm tra function calling hoạt động
+     */
+    @PostMapping("/test-function-calling")
+    public ResponseEntity<Map<String, Object>> testFunctionCalling(
+            @RequestParam String userEmail,
+            @RequestParam String testMessage) {
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("testType", "Function Calling Test");
+        result.put("testMessage", testMessage);
+        result.put("userEmail", userEmail);
+        result.put("timestamp", java.time.LocalDateTime.now());
+
+        try {
+            // Test với các message khác nhau để kiểm tra function calling
+            ChatRequest testRequest = new ChatRequest();
+            testRequest.setMessage(testMessage);
+            testRequest.setConversationId(null);
+            testRequest.setSenderRole("PET_OWNER");
+
+            log.info("=== TESTING FUNCTION CALLING ===");
+            log.info("Test message: {}", testMessage);
+
+            ChatResponse response = chatService.sendMessage(userEmail, testRequest);
+
+            result.put("success", true);
+            result.put("response", response);
+            result.put("hasAdoptionData", response.getAdoptionData() != null);
+            result.put("adoptionData", response.getAdoptionData());
+
+            // Analyze results
+            if (response.getAdoptionData() != null) {
+                result.put("functionCallingStatus", "SUCCESS - AI called tools");
+                result.put("petsReturned", response.getAdoptionData().getAdoption() != null ?
+                          response.getAdoptionData().getAdoption().size() : 0);
+                result.put("message", response.getAdoptionData().getMessage());
+            } else {
+                result.put("functionCallingStatus", "NO TOOLS CALLED - AI answered from knowledge");
+                result.put("message", "AI không gọi tools, trả lời từ kiến thức có sẵn");
+            }
+
+            log.info("Function calling test result: {}", result.get("functionCallingStatus"));
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            result.put("functionCallingStatus", "ERROR - Function calling failed");
+
+            log.error("Function calling test failed", e);
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    /**
+     * Get function calling statistics
+     */
+    @GetMapping("/function-calling-stats")
+    public ResponseEntity<Map<String, Object>> getFunctionCallingStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("functionCallingEnabled", true);
+        stats.put("availableTools", List.of(
+            "searchAdoptionListings - Tìm kiếm thú cưng theo tiêu chí",
+            "getAdoptionListingDetails - Lấy chi tiết thú cưng cụ thể",
+            "getAdoptionStatistics - Thống kê số lượng thú cưng",
+            "findMatchingPets - Tìm thú cưng phù hợp sở thích"
+        ));
+        stats.put("springAiVersion", "1.0.0-M6");
+        stats.put("entityExtraction", "AdoptionListingsAiResponse.class");
+        stats.put("debugLoggingEnabled", true);
+        stats.put("testEndpoint", "/apis/v1/chat/test-function-calling");
+
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Create sample adoption listings for testing
+     */
+    @PostMapping("/create-sample-data")
+    public ResponseEntity<Map<String, Object>> createSampleData() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("action", "Create Sample Adoption Data");
+        result.put("timestamp", java.time.LocalDateTime.now());
+
+        try {
+            // Note: This would need AdoptionListingsService to be injected
+            // For now, return message to create data manually or via SQL
+
+            result.put("success", false);
+            result.put("message", "Please create sample data manually via database or API calls");
+            result.put("instructions", "Use POST /apis/v1/adoption-listings to create pets with adoptionStatus='PENDING'");
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(result);
         }
     }
