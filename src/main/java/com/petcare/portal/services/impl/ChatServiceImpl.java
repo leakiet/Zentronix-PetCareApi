@@ -99,7 +99,7 @@ public class ChatServiceImpl implements ChatService {
             chatMessageRepository.save(aiMessage);
 
             if (cleanedAiResponse == null || cleanedAiResponse.trim().isEmpty()) {
-                cleanedAiResponse = "Xin lỗi, tôi không thể trả lời lúc này. Vui lòng thử lại.";
+                cleanedAiResponse = "Sorry, I can't respond right now. Please try again.";
                 aiResponse.setMessage(cleanedAiResponse);
             }
 
@@ -112,7 +112,7 @@ public class ChatServiceImpl implements ChatService {
             ChatResponse errorResponse = new ChatResponse();
             errorResponse.setConversationId(request.getConversationId());
             errorResponse.setSender("PetCare AI");
-            errorResponse.setMessage("Xin lỗi, có lỗi xảy ra khi xử lý tin nhắn của bạn. Vui lòng thử lại sau.");
+            errorResponse.setMessage("Sorry, an error occurred while processing your message. Please try again later.");
             errorResponse.setIsFromAI(true);
             errorResponse.setStatus("ERROR");
             errorResponse.setTimestamp(LocalDateTime.now());
@@ -209,9 +209,9 @@ public class ChatServiceImpl implements ChatService {
             }
         }
 
-        // Tạo conversation mới
+        // Create new conversation
         Conversation newConversation = new Conversation();
-        newConversation.setTitle("Cuộc trò chuyện mới");
+        newConversation.setTitle("New Conversation");
         newConversation.setStartTime(LocalDateTime.now());
 
         if (userId != null) {
@@ -238,8 +238,8 @@ public class ChatServiceImpl implements ChatService {
             chatMessage.setSenderName(user.getFirstName() + " " + user.getLastName());
         }
 
-        // Có thể lưu senderRole vào ChatMessage nếu cần, nhưng hiện tại chưa có field này trong entity
-        // Log senderRole để debug
+        // Can save senderRole to ChatMessage if needed, but currently no such field in entity
+        // Log senderRole for debugging
         log.debug("Creating user message with senderRole: {}", senderRole);
 
         return chatMessage;
@@ -264,34 +264,34 @@ public class ChatServiceImpl implements ChatService {
 
     private String generateSummary(List<ChatMessage> messages) {
         try {
-            StringBuilder context = new StringBuilder("=== CUỘC TRÒ CHUYỆN VỀ CHĂM SÓC THÚ CƯNG ===\n\n");
+            StringBuilder context = new StringBuilder("=== PET CARE CONVERSATION ===\n\n");
             for (ChatMessage msg : messages) {
                 String sender = msg.getIsFromAI() ? "🤖 AI: " : "👤 User: ";
                 context.append(sender).append(msg.getContent()).append("\n");
             }
 
             String prompt = """
-                TÓM TẮT NGẮN GỌN cuộc trò chuyện về chăm sóc thú cưng.
-                CHỈ tập trung vào:
-                - Thông tin thú cưng hiện tại (nếu có)
-                - Vấn đề sức khỏe CHƯA giải quyết hoặc đang theo dõi
-                - Lời khuyên quan trọng đã đưa ra
-                - Trạng thái hiện tại
+                SUMMARIZE the pet care conversation concisely.
+                FOCUS ONLY on:
+                - Current pet information (if any)
+                - Unresolved or ongoing health issues
+                - Important advice given
+                - Current status
 
-                QUAN TRỌNG: Giữ tóm tắt NGẮN (dưới 150 từ), chỉ thông tin CẦN THIẾT.
-                KHÔNG nhắc lại chi tiết không cần thiết. Viết bằng tiếng Việt.
-                Tóm tắt:
+                IMPORTANT: Keep summary SHORT (under 150 words), only ESSENTIAL information.
+                DO NOT repeat unnecessary details. Write in English.
+                Summary:
                 """ + context;
 
             return chatClient.prompt()
-                .system("Bạn là chuyên gia tóm tắt thông tin y tế thú cưng.")
+                .system("You are an expert at summarizing pet medical information.")
                 .user(prompt)
                 .call()
                 .content();
 
         } catch (Exception e) {
             log.error("Error generating summary", e);
-            return "Không thể tạo tóm tắt. Cuộc trò chuyện về chăm sóc thú cưng.";
+            return "Unable to generate summary. Conversation about pet care.";
         }
     }
 
@@ -299,19 +299,19 @@ public class ChatServiceImpl implements ChatService {
         try {
             String systemPrompt = loadSystemPrompt();
             String contextPrompt = String.format("""
-                === TÓM TẮT LỊCH SỬ CUỘC TRÒ CHUYỆN (THAM KHẢO) ===
+                === CONVERSATION HISTORY SUMMARY (FOR REFERENCE) ===
                 %s
 
-                === CÂU HỎI HIỆN TẠI (ƯU TIÊN TRẢ LỜI) ===
+                === CURRENT QUESTION (PRIORITY RESPONSE) ===
                 %s
 
-                === HƯỚNG DẪN TRẢ LỜI ===
-                - ƯU TIÊN trả lời trực tiếp câu hỏi hiện tại
-                - Chỉ sử dụng thông tin từ tóm tắt khi CẦN THIẾT để bổ sung
-                - KHÔNG nhắc lại toàn bộ lịch sử trừ khi được hỏi cụ thể
-                - Tập trung giải quyết vấn đề hiện tại của người dùng
-                - Nếu câu hỏi mới khác chủ đề, trả lời độc lập với lịch sử
-                - Trả lời bằng tiếng Việt một cách thân thiện và chuyên nghiệp
+                === RESPONSE GUIDELINES ===
+                - PRIORITIZE answering the current question directly
+                - Only use information from summary when NECESSARY for supplementation
+                - DO NOT repeat entire history unless specifically asked
+                - Focus on solving the user's current problem
+                - If new question is different topic, answer independently from history
+                - Respond in English in a friendly and professional manner
                 """, summary, userMessage.getContent());
 
             String response = chatClient.prompt()
@@ -324,7 +324,7 @@ public class ChatServiceImpl implements ChatService {
 
         } catch (Exception e) {
             log.error("Error generating AI response with summary", e);
-            return "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.";
+            return "Sorry, I cannot process your request at this time. Please try again later.";
         }
     }
 
@@ -337,14 +337,14 @@ public class ChatServiceImpl implements ChatService {
             String latestUserMessage = getLatestUserMessage(messages);
 
             String prompt = systemPrompt + "\n\n" +
-                "=== LỊCH SỬ CUỘC TRÒ CHUYỆN (THAM KHẢO) ===\n" + context + "\n\n" +
-                "=== CÂU HỎI HIỆN TẠI (ƯU TIÊN TRẢ LỜI) ===\n" + latestUserMessage + "\n\n" +
-                "=== HƯỚNG DẪN TRẢ LỜI ===\n" +
-                "- ƯU TIÊN trả lời trực tiếp câu hỏi hiện tại\n" +
-                "- Chỉ tham khảo lịch sử khi CẦN THIẾT để cung cấp thông tin bổ sung\n" +
-                "- KHÔNG nhắc lại lịch sử trừ khi được hỏi\n" +
-                "- Tập trung vào giải quyết vấn đề hiện tại của người dùng\n" +
-                "- Nếu câu hỏi mới khác chủ đề hoàn toàn, trả lời độc lập";
+                "=== CONVERSATION HISTORY (FOR REFERENCE) ===\n" + context + "\n\n" +
+                "=== CURRENT QUESTION (PRIORITY RESPONSE) ===\n" + latestUserMessage + "\n\n" +
+                "=== RESPONSE GUIDELINES ===\n" +
+                "- PRIORITIZE answering the current question directly\n" +
+                "- Only reference history when NECESSARY to provide additional information\n" +
+                "- DO NOT repeat history unless asked\n" +
+                "- Focus on solving the user's current problem\n" +
+                "- If new question is completely different topic, answer independently";
 
             String response = chatClient.prompt()
                 .system(systemPrompt)
@@ -356,7 +356,7 @@ public class ChatServiceImpl implements ChatService {
 
         } catch (Exception e) {
             log.error("Error generating AI response", e);
-            return "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.";
+            return "Sorry, I cannot process your request at this time. Please try again later.";
         }
     }
 
@@ -372,15 +372,15 @@ public class ChatServiceImpl implements ChatService {
             String latestUserMessage = getLatestUserMessage(messages);
 
             String prompt = systemPrompt + "\n\n" +
-                "=== LỊCH SỬ CUỘC TRÒ CHUYỆN (THAM KHẢO) ===\n" + context + "\n\n" +
-                "=== CÂU HỎI HIỆN TẠI (ƯU TIÊN TRẢ LỜI) ===\n" + latestUserMessage + "\n\n" +
-                "=== HƯỚNG DẪN TRẢ LỜI ===\n" +
-                "- ƯU TIÊN trả lời trực tiếp câu hỏi hiện tại\n" +
-                "- Chỉ tham khảo lịch sử khi CẦN THIẾT để cung cấp thông tin bổ sung\n" +
-                "- KHÔNG nhắc lại lịch sử trừ khi được hỏi\n" +
-                "- Tập trung vào giải quyết vấn đề hiện tại của người dùng\n" +
-                "- Nếu câu hỏi mới khác chủ đề, trả lời độc lập\n" +
-                "- KHÔNG sử dụng tools hoặc function calling cho câu hỏi này";
+                "=== CONVERSATION HISTORY (FOR REFERENCE) ===\n" + context + "\n\n" +
+                "=== CURRENT QUESTION (PRIORITY RESPONSE) ===\n" + latestUserMessage + "\n\n" +
+                "=== RESPONSE GUIDELINES ===\n" +
+                "- PRIORITIZE answering the current question directly\n" +
+                "- Only reference history when NECESSARY to provide additional information\n" +
+                "- DO NOT repeat history unless asked\n" +
+                "- Focus on solving the user's current problem\n" +
+                "- If new question is different topic, answer independently\n" +
+                "- DO NOT use tools or function calling for this question";
 
             String response = chatClient.prompt()
                 .system(systemPrompt)
@@ -409,7 +409,7 @@ public class ChatServiceImpl implements ChatService {
             return new ChatResponse(
                 conversation.getId(),
                 "PetCare AI",
-                "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.",
+                "Sorry, I cannot process your request at this time. Please try again later.",
                 true,
                 "ERROR",
                 null,
@@ -438,8 +438,8 @@ public class ChatServiceImpl implements ChatService {
 
         StringBuilder context = new StringBuilder();
 
-        // Include conversation summary if available (từ conversation entity)
-        // Summary sẽ được thêm vào context để AI hiểu lịch sử dài hạn
+        // Include conversation summary if available (from conversation entity)
+        // Summary will be added to context so AI understands long-term history
 
         String latestUserMessage = getLatestUserMessage(messages).toLowerCase();
         List<String> keywords = extractKeywordsFromLatestMessage(latestUserMessage);
@@ -467,10 +467,27 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private List<String> extractKeywordsFromLatestMessage(String message) {
-        // Extract key topics from the latest user message
-        List<String> allKeywords = List.of("bệnh", "ốm", "triệu chứng", "thuốc", "bác sĩ", "khám", "tiêm",
+        // Extract key topics from the latest user message (Vietnamese + English)
+        List<String> allKeywords = List.of(
+            // Vietnamese health keywords - từ khóa sức khỏe tiếng Việt
+            "bệnh", "ốm", "triệu chứng", "thuốc", "bác sĩ", "khám", "tiêm",
             "ăn", "uống", "đau", "sốt", "ói", "tiêu chảy", "ho", "hắt hơi",
-            "nhận nuôi", "adopt", "thú cưng", "chó", "mèo", "chim");
+            "khỏe", "ốm yếu", "kiểm tra", "chữa trị",
+
+            // English health keywords - từ khóa sức khỏe tiếng Anh
+            "sick", "ill", "symptoms", "medicine", "doctor", "veterinarian", "checkup", "vaccine",
+            "eat", "drink", "pain", "fever", "vomit", "diarrhea", "cough", "sneeze",
+            "healthy", "weak", "treatment", "diagnosis",
+
+            // Vietnamese adoption keywords - từ khóa nhận nuôi tiếng Việt
+            "nhận nuôi", "thú cưng", "chó", "mèo", "chim", "nuôi",
+
+            // English adoption keywords - từ khóa nhận nuôi tiếng Anh
+            "adopt", "adoption", "pet", "dog", "cat", "bird", "adoptable",
+
+            // Training/behavior keywords - từ khóa huấn luyện/hành vi
+            "huấn luyện", "hành vi", "ngoan", "cắn", "training", "behavior", "bite", "good boy"
+        );
 
         return allKeywords.stream()
             .filter(message::contains)
@@ -492,20 +509,26 @@ public class ChatServiceImpl implements ChatService {
 
         String lowerQuery = userQuery.toLowerCase();
 
-        // Adoption-related keywords
+        // Adoption-related keywords (Vietnamese + English mapping)
         List<String> adoptionKeywords = List.of(
-            // Vietnamese keywords
+            // Vietnamese keywords - nhận nuôi thú cưng
             "nhận nuôi", "tìm thú cưng", "giới thiệu thú cưng", "thú cưng nào",
             "có thú cưng", "thú cưng phù hợp", "muốn nuôi", "tìm chó", "tìm mèo",
             "tìm chim", "chó đực", "chó cái", "mèo đực", "mèo cái", "chim đực", "chim cái",
             "giống đực", "giống cái", "giới tính", "tuổi", "breed", "giống",
             "thông tin thú cưng", "chi tiết thú cưng", "thống kê", "số lượng",
             "danh sách thú cưng", "có chó", "có mèo", "có chim", "tìm kiếm",
-            "search", "find", "adopt", "adoption", "available", "listing",
+            "nuôi chó", "nuôi mèo", "nuôi chim", "muốn nhận", "cần nuôi",
 
-            // English keywords
-            "find pet", "looking for", "adopt a", "pet available", "pet listings",
-            "male dog", "female dog", "male cat", "female cat", "statistics"
+            // English keywords - pet adoption
+            "adopt", "adoption", "find pet", "looking for", "search pet",
+            "pet available", "pet listings", "available pets", "adoptable",
+            "male dog", "female dog", "male cat", "female cat", "male bird", "female bird",
+            "dog adoption", "cat adoption", "bird adoption", "pet rescue", "animal shelter",
+            "statistics", "pet information", "pet details", "how many pets",
+            "pet list", "pet directory", "pet finder", "want to adopt",
+            "need pet", "looking for dog", "looking for cat", "looking for bird",
+            "puppy adoption", "kitten adoption", "breed", "age", "gender"
         );
 
         // Check if query contains any adoption-related keywords
@@ -597,27 +620,36 @@ public class ChatServiceImpl implements ChatService {
         if (text == null || text.isEmpty()) return text;
 
         try {
-            // Remove numbered pet lists (1. Tên: ..., 2. Tên: ...)
-            text = text.replaceAll("\\d+\\.\\s*Tên:\\s*[^\\n]+(?:\\n.*?)*?(?=\\d+\\.\\s*Tên:|Hy vọng|$)", "");
+            // Remove numbered pet lists (Vietnamese + English patterns)
+            text = text.replaceAll("\\d+\\.\\s*Tên:\\s*[^\\n]+(?:\\n.*?)*?(?=\\d+\\.\\s*Tên:|Hy vọng|$)", ""); // Vietnamese: "1. Tên: ..."
+            text = text.replaceAll("\\d+\\.\\s*Name:\\s*[^\\n]+(?:\\n.*?)*?(?=\\d+\\.\\s*Name:|Hope|$)", ""); // English: "1. Name: ..."
 
-            // Remove "Dưới đây là danh sách..." patterns
-            text = text.replaceAll("Dưới đây là danh sách[^\\n]*", "");
+            // Remove list introduction patterns (Vietnamese + English)
+            text = text.replaceAll("Dưới đây là danh sách[^\\n]*", ""); // Vietnamese: "Dưới đây là danh sách..."
+            text = text.replaceAll("Below is the list[^\\n]*", ""); // English: "Below is the list..."
+            text = text.replaceAll("Here are the pets[^\\n]*", ""); // English: "Here are the pets..."
+            text = text.replaceAll("Danh sách thú cưng[^\\n]*", ""); // Vietnamese: "Danh sách thú cưng..."
 
-            // Remove individual pet mentions with details
-            text = text.replaceAll("chú chó[^\\n]*", "");
-            text = text.replaceAll("con mèo[^\\n]*", "");
-            text = text.replaceAll("chú mèo[^\\n]*", "");
-            text = text.replaceAll("con chó[^\\n]*", "");
+            // Remove individual pet mentions with details (Vietnamese + English)
+            text = text.replaceAll("chú chó[^\\n]*", ""); // Vietnamese: "chú chó..."
+            text = text.replaceAll("con mèo[^\\n]*", ""); // Vietnamese: "con mèo..."
+            text = text.replaceAll("chú mèo[^\\n]*", ""); // Vietnamese: "chú mèo..."
+            text = text.replaceAll("con chó[^\\n]*", ""); // Vietnamese: "con chó..."
+            text = text.replaceAll("puppy[^\\n]*", ""); // English: "puppy..."
+            text = text.replaceAll("kitten[^\\n]*", ""); // English: "kitten..."
+            text = text.replaceAll("dog[^\\n]*", ""); // English: "dog..."
+            text = text.replaceAll("cat[^\\n]*", ""); // English: "cat..."
+            text = text.replaceAll("bird[^\\n]*", ""); // English: "bird..."
 
-            // Remove image references (!PetName)
-            text = text.replaceAll("!\\w+", "");
+            // Remove image references
+            text = text.replaceAll("!\\w+", ""); // !PetName patterns
 
             // Remove excessive whitespace and empty lines
             text = text.replaceAll("\\n{3,}", "\n\n").trim();
 
             // If text becomes too short after cleaning, add a generic message
             if (text.length() < 10) {
-                text = "Đã tìm thấy thú cưng phù hợp với yêu cầu của bạn.";
+                text = "Found pets that match your requirements.";
             }
 
             return text;
@@ -643,47 +675,47 @@ public class ChatServiceImpl implements ChatService {
 
     private String getDefaultSystemPrompt() {
         return """
-            Bạn là trợ lý AI chuyên về chăm sóc thú cưng cho PetCare Portal.
+            You are an AI assistant specialized in pet care for PetCare Portal.
 
-            Nhiệm vụ của bạn:
-            - Cung cấp thông tin chính xác về chăm sóc thú cưng
-            - Hướng dẫn chủ nuôi cách chăm sóc thú cưng đúng cách
-            - Tư vấn về dinh dưỡng, sức khỏe, và hành vi của thú cưng
-            - Hỗ trợ nhận nuôi thú cưng khi người dùng yêu cầu
-            - Khuyến khích phòng ngừa bệnh tật và kiểm tra sức khỏe định kỳ
-            - Hỗ trợ giải đáp thắc mắc về các vấn đề thường gặp
+            Your mission:
+            - Provide accurate information about pet care
+            - Guide pet owners on proper pet care methods
+            - Advise on nutrition, health, and pet behavior
+            - Support pet adoption when users request
+            - Encourage disease prevention and regular health check-ups
+            - Help answer common questions and concerns
 
-            NGUYÊN TẮC QUAN TRỌNG:
-            - ƯU TIÊN trả lời trực tiếp câu hỏi hiện tại của người dùng
-            - Chỉ tham khảo lịch sử cuộc trò chuyện khi CẦN THIẾT
-            - KHÔNG nhắc lại thông tin đã biết trừ khi được hỏi
-            - Tập trung giải quyết vấn đề hiện tại
-            - Sử dụng tools khi người dùng hỏi về nhận nuôi thú cưng
+            IMPORTANT PRINCIPLES:
+            - PRIORITIZE answering the user's current question directly
+            - Only reference conversation history when NECESSARY
+            - DO NOT repeat known information unless asked
+            - Focus on solving the current problem
+            - Use tools when users ask about pet adoption
 
-            Khi người dùng hỏi về nhận nuôi thú cưng:
-            - Sử dụng tools để lấy thông tin chính xác từ database
-            - Hiển thị danh sách thú cưng phù hợp với yêu cầu
-            - Cung cấp thông tin chi tiết và chính xác
-            - Khuyến khích người dùng liên hệ trực tiếp để nhận nuôi
+            When users ask about pet adoption:
+            - Use tools to get accurate information from database
+            - Display list of pets matching requirements
+            - Provide detailed and accurate information
+            - Encourage users to contact shelters directly for adoption
 
-            Nguyên tắc hoạt động:
-            - Luôn trả lời bằng tiếng Việt một cách thân thiện và dễ hiểu
-            - Không đưa ra chẩn đoán bệnh cụ thể
-            - Luôn khuyến khích tham khảo ý kiến bác sĩ thú y khi cần thiết
-            - Tập trung vào việc giáo dục và hướng dẫn chủ nuôi
-            - Sử dụng ngôn ngữ tích cực và khuyến khích
+            Operating principles:
+            - Always respond in English in a friendly and understandable way
+            - Do not provide specific disease diagnoses
+            - Always encourage consulting veterinarians when necessary
+            - Focus on educating and guiding pet owners
+            - Use positive and encouraging language
 
-            Khi trả lời:
-            - Lắng nghe và thấu hiểu lo lắng của chủ nuôi
-            - Cung cấp thông tin dựa trên kiến thức chuyên môn hoặc tools
-            - Đưa ra lời khuyên thực tế và khả thi
-            - Khuyến khích sự tương tác tích cực với thú cưng
-            - Hướng dẫn chủ nuôi nhận biết dấu hiệu bất thường
+            When responding:
+            - Listen and understand the pet owner's concerns
+            - Provide information based on professional knowledge or tools
+            - Give practical and feasible advice
+            - Encourage positive interaction with pets
+            - Guide owners to recognize abnormal signs
 
-            Định dạng văn bản:
-            - KHÔNG sử dụng markdown formatting (**bold**, *italic*, headers, lists, etc.)
-            - Sử dụng plain text thuần túy để dễ đọc trên chat apps
-            - Viết tự nhiên như đang trò chuyện với chủ nuôi
+            Text formatting:
+            - DO NOT use markdown formatting (**bold**, *italic*, headers, lists, etc.)
+            - Use plain text only for easy reading on chat apps
+            - Write naturally as if conversing with a pet owner
             """;
     }
 
@@ -799,7 +831,7 @@ public class ChatServiceImpl implements ChatService {
                 + "- If user wants general search, use species=null, gender=null, etc.\n"
                 + "- Always provide page=0, size=10 (or reasonable values) for pagination\n\n"
                 + "RESPONSE STRATEGY:\n"
-                + "- If tool returns results: Provide SHORT summary in text (e.g., 'Đã tìm thấy X thú cưng phù hợp')\n"
+                + "- If tool returns results: Provide SHORT summary in text (e.g., 'Found X pets that match your criteria')\n"
                 + "- NEVER include pet lists/details in text response - use structured data instead\n"
                 + "- If no pets found: Tell user clearly, set adoptionData.adoption to empty array\n"
                 + "- Do NOT automatically try different criteria unless user asks\n\n"
@@ -821,7 +853,7 @@ public class ChatServiceImpl implements ChatService {
                 - Use tools when user asks about pet adoption/finding pets
                 - Answer directly from knowledge for general pet care questions
                 - Prioritize current question, reference history only when relevant
-                - Respond in Vietnamese, friendly and professional
+                - Respond in English/Vietnamese, friendly and professional
                 - DO NOT use markdown formatting
                 - TEXT RESPONSE: Keep it SHORT and CONCISE - don't include pet lists
                 - STRUCTURED DATA: Put ALL pet details in adoptionData.adoption array
@@ -866,7 +898,7 @@ public class ChatServiceImpl implements ChatService {
 
                     // Ensure adoptionData has proper message
                     if (adoptionData.getMessage() == null || adoptionData.getMessage().isEmpty()) {
-                        adoptionData.setMessage("Đã tìm thấy " + adoptionData.getAdoption().size() + " thú cưng phù hợp với yêu cầu của bạn.");
+                        adoptionData.setMessage("Found " + adoptionData.getAdoption().size() + " pets that match your requirements.");
                     }
 
                 } else if (adoptionData != null) {
@@ -874,7 +906,7 @@ public class ChatServiceImpl implements ChatService {
 
                     // Ensure adoptionData has proper structure for empty results
                     if (adoptionData.getMessage() == null || adoptionData.getMessage().isEmpty()) {
-                        adoptionData.setMessage("Hiện tại không tìm thấy thú cưng nào phù hợp với tiêu chí của bạn.");
+                        adoptionData.setMessage("Currently no pets found that match your criteria.");
                     }
                     if (adoptionData.getAdoption() == null) {
                         adoptionData.setAdoption(List.of());
@@ -884,7 +916,7 @@ public class ChatServiceImpl implements ChatService {
                     log.debug("ℹ️ NO STRUCTURED DATA: AI responded with text only");
                     // AI didn't call tools, create minimal adoptionData
                     adoptionData = new AdoptionListingsAiResponse();
-                    adoptionData.setMessage("Tôi đã trả lời câu hỏi của bạn.");
+                    adoptionData.setMessage("I have answered your question.");
                     adoptionData.setAdoption(List.of());
                 }
         } catch (Exception e) {
@@ -912,7 +944,7 @@ public class ChatServiceImpl implements ChatService {
             return new ChatResponse(
                 conversation.getId(),
                 "PetCare AI",
-                "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.",
+                "Sorry, I cannot process your request at this time. Please try again later.",
                 true,
                 "ERROR",
                 null,
@@ -977,45 +1009,60 @@ public class ChatServiceImpl implements ChatService {
      */
     private String getTypingMessageForQuery(String userQuery) {
         if (userQuery == null || userQuery.trim().isEmpty()) {
-            return "AI đang chuẩn bị tư vấn...";
+            return "AI is preparing to advise...";
         }
 
         String lowerQuery = userQuery.toLowerCase();
 
-        // Adoption-related queries
+        // Adoption-related queries (Vietnamese + English)
         if (lowerQuery.contains("nhận nuôi") || lowerQuery.contains("tìm thú cưng") ||
             lowerQuery.contains("giới thiệu thú cưng") || lowerQuery.contains("tìm chó") ||
-            lowerQuery.contains("tìm mèo") || lowerQuery.contains("thú cưng nào")) {
-            return "AI đang tìm kiếm thú cưng phù hợp với yêu cầu của bạn...";
+            lowerQuery.contains("tìm mèo") || lowerQuery.contains("thú cưng nào") ||
+            lowerQuery.contains("adopt") || lowerQuery.contains("adoption") ||
+            lowerQuery.contains("find pet") || lowerQuery.contains("looking for") ||
+            lowerQuery.contains("pet available") || lowerQuery.contains("pet listings")) {
+            return "AI is searching for pets that match your requirements...";
         }
 
-        // Health-related queries
+        // Health-related queries (Vietnamese + English)
         if (lowerQuery.contains("bệnh") || lowerQuery.contains("ốm") ||
             lowerQuery.contains("triệu chứng") || lowerQuery.contains("thuốc") ||
-            lowerQuery.contains("bác sĩ") || lowerQuery.contains("khám")) {
-            return "AI đang phân tích triệu chứng và chuẩn bị tư vấn...";
+            lowerQuery.contains("bác sĩ") || lowerQuery.contains("khám") ||
+            lowerQuery.contains("sick") || lowerQuery.contains("ill") ||
+            lowerQuery.contains("symptoms") || lowerQuery.contains("medicine") ||
+            lowerQuery.contains("doctor") || lowerQuery.contains("veterinarian") ||
+            lowerQuery.contains("checkup") || lowerQuery.contains("pain")) {
+            return "AI is analyzing symptoms and preparing advice...";
         }
 
-        // Care-related queries
+        // Care-related queries (Vietnamese + English)
         if (lowerQuery.contains("ăn") || lowerQuery.contains("uống") ||
-            lowerQuery.contains("dinh dưỡng") || lowerQuery.contains("chăm sóc")) {
-            return "AI đang tư vấn về chế độ dinh dưỡng và chăm sóc...";
+            lowerQuery.contains("dinh dưỡng") || lowerQuery.contains("chăm sóc") ||
+            lowerQuery.contains("eat") || lowerQuery.contains("drink") ||
+            lowerQuery.contains("nutrition") || lowerQuery.contains("care") ||
+            lowerQuery.contains("feeding") || lowerQuery.contains("grooming")) {
+            return "AI is advising on nutrition and care routines...";
         }
 
-        // Training/behavior queries
+        // Training/behavior queries (Vietnamese + English)
         if (lowerQuery.contains("huấn luyện") || lowerQuery.contains("hành vi") ||
-            lowerQuery.contains("ngoan") || lowerQuery.contains("cắn")) {
-            return "AI đang chuẩn bị lời khuyên về huấn luyện thú cưng...";
+            lowerQuery.contains("ngoan") || lowerQuery.contains("cắn") ||
+            lowerQuery.contains("training") || lowerQuery.contains("behavior") ||
+            lowerQuery.contains("good boy") || lowerQuery.contains("good girl") ||
+            lowerQuery.contains("bite") || lowerQuery.contains("bark")) {
+            return "AI is preparing advice on pet training...";
         }
 
-        // General greeting or casual conversation
+        // General greeting or casual conversation (Vietnamese + English)
         if (lowerQuery.contains("chào") || lowerQuery.contains("hello") ||
-            lowerQuery.contains("cảm ơn") || lowerQuery.contains("thanks")) {
-            return "AI đang chuẩn bị chào hỏi và tư vấn...";
+            lowerQuery.contains("cảm ơn") || lowerQuery.contains("thanks") ||
+            lowerQuery.contains("hi") || lowerQuery.contains("hey") ||
+            lowerQuery.contains("xin chào") || lowerQuery.contains("good morning")) {
+            return "AI is preparing greetings and advice...";
         }
 
         // Default typing message
-        return "AI đang tư vấn về thú cưng của bạn...";
+        return "AI is advising about your pet...";
     }
 
 
