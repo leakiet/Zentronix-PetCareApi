@@ -3,7 +3,9 @@ package com.petcare.portal.services.impl;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +47,7 @@ public class ChatServiceImpl implements ChatService {
     private final ChatClient chatClient;
     private final ResourceLoader resourceLoader;
     private final Tools tools;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Value("${petcare.ai.max-messages-before-summary:20}")
     private int maxMessagesBeforeSummary;
@@ -133,9 +137,25 @@ public class ChatServiceImpl implements ChatService {
 
     private ChatResponse generateAIResponse(Conversation conversation, List<ChatMessage> contextMessages,
             ChatMessage userMessage, String userQuery, boolean needsSummary) {
-        // Luôn sử dụng function calling để AI có thể tự quyết định gọi tools
-        // Nhưng vẫn include summary trong context nếu có
-        return generateAIResponseWithTools(conversation, contextMessages, userQuery);
+        // Send typing start event immediately
+        sendTypingStartEvent(conversation, getTypingMessageForQuery(userQuery));
+
+        ChatResponse response;
+        try {
+            // Check if user query needs function calling (adoption-related)
+            if (isAdoptionRelatedQuery(userQuery)) {
+                // Use function calling for adoption/pet finding queries
+                response = generateAIResponseWithTools(conversation, contextMessages, userQuery);
+            } else {
+                // Use regular AI response for general chat/care questions
+                response = generateAIResponseWithoutTools(conversation, contextMessages, userQuery);
+            }
+        } finally {
+            // Send typing stop event
+            sendTypingStopEvent(conversation);
+        }
+
+        return response;
     }
 
     private ChatResponse createResponse(Long conversationId, String message, AdoptionListingsAiResponse adoptionData) {
@@ -340,6 +360,68 @@ public class ChatServiceImpl implements ChatService {
         }
     }
 
+    /**
+     * Generate AI response without function calling for general chat/care questions
+     */
+    private ChatResponse generateAIResponseWithoutTools(Conversation conversation, List<ChatMessage> messages, String userQuery) {
+        try {
+            String systemPrompt = loadSystemPrompt();
+            String context = buildSmartContext(messages);
+
+            // Get the latest user message for intent analysis
+            String latestUserMessage = getLatestUserMessage(messages);
+
+            String prompt = systemPrompt + "\n\n" +
+                "=== LỊCH SỬ CUỘC TRÒ CHUYỆN (THAM KHẢO) ===\n" + context + "\n\n" +
+                "=== CÂU HỎI HIỆN TẠI (ƯU TIÊN TRẢ LỜI) ===\n" + latestUserMessage + "\n\n" +
+                "=== HƯỚNG DẪN TRẢ LỜI ===\n" +
+                "- ƯU TIÊN trả lời trực tiếp câu hỏi hiện tại\n" +
+                "- Chỉ tham khảo lịch sử khi CẦN THIẾT để cung cấp thông tin bổ sung\n" +
+                "- KHÔNG nhắc lại lịch sử trừ khi được hỏi\n" +
+                "- Tập trung vào giải quyết vấn đề hiện tại của người dùng\n" +
+                "- Nếu câu hỏi mới khác chủ đề, trả lời độc lập\n" +
+                "- KHÔNG sử dụng tools hoặc function calling cho câu hỏi này";
+
+            String response = chatClient.prompt()
+                .system(systemPrompt)
+                .user(prompt)
+                .call()
+                .content();
+
+            String cleanedResponse = cleanMarkdown(response);
+
+            return new ChatResponse(
+                conversation.getId(),
+                "PetCare AI",
+                cleanedResponse,
+                true,
+                "COMPLETED",
+                null, // messageId will be set when saved
+                LocalDateTime.now(),
+                "AI",
+                false,
+                null,
+                null // No adoption data for non-adoption queries
+            );
+
+        } catch (Exception e) {
+            log.error("Error generating AI response without tools", e);
+            return new ChatResponse(
+                conversation.getId(),
+                "PetCare AI",
+                "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Vui lòng thử lại sau.",
+                true,
+                "ERROR",
+                null,
+                LocalDateTime.now(),
+                "AI",
+                false,
+                null,
+                null
+            );
+        }
+    }
+
     private String getLatestUserMessage(List<ChatMessage> messages) {
         // Find the most recent user message
         for (int i = messages.size() - 1; i >= 0; i--) {
@@ -398,6 +480,36 @@ public class ChatServiceImpl implements ChatService {
     private boolean isRecentMessage(int messageIndex, int totalMessages) {
         // Always include messages from the last 3 exchanges (6 messages)
         return (totalMessages - messageIndex) <= 6;
+    }
+
+    /**
+     * Check if user query is related to adoption/pet finding
+     */
+    private boolean isAdoptionRelatedQuery(String userQuery) {
+        if (userQuery == null || userQuery.trim().isEmpty()) {
+            return false;
+        }
+
+        String lowerQuery = userQuery.toLowerCase();
+
+        // Adoption-related keywords
+        List<String> adoptionKeywords = List.of(
+            // Vietnamese keywords
+            "nhận nuôi", "tìm thú cưng", "giới thiệu thú cưng", "thú cưng nào",
+            "có thú cưng", "thú cưng phù hợp", "muốn nuôi", "tìm chó", "tìm mèo",
+            "tìm chim", "chó đực", "chó cái", "mèo đực", "mèo cái", "chim đực", "chim cái",
+            "giống đực", "giống cái", "giới tính", "tuổi", "breed", "giống",
+            "thông tin thú cưng", "chi tiết thú cưng", "thống kê", "số lượng",
+            "danh sách thú cưng", "có chó", "có mèo", "có chim", "tìm kiếm",
+            "search", "find", "adopt", "adoption", "available", "listing",
+
+            // English keywords
+            "find pet", "looking for", "adopt a", "pet available", "pet listings",
+            "male dog", "female dog", "male cat", "female cat", "statistics"
+        );
+
+        // Check if query contains any adoption-related keywords
+        return adoptionKeywords.stream().anyMatch(lowerQuery::contains);
     }
 
     private ChatResponse convertToChatResponse(ChatMessage message) {
@@ -811,6 +923,99 @@ public class ChatServiceImpl implements ChatService {
                 null
             );
         }
+    }
+
+    /**
+     * Send typing start event via WebSocket
+     */
+    private void sendTypingStartEvent(Conversation conversation, String typingMessage) {
+        try {
+            Map<String, Object> typingEvent = new HashMap<>();
+            typingEvent.put("type", "TYPING_START");
+            typingEvent.put("conversationId", conversation.getId());
+            typingEvent.put("sender", "PetCare AI");
+            typingEvent.put("timestamp", LocalDateTime.now());
+            typingEvent.put("message", typingMessage);
+            typingEvent.put("isTyping", true);
+
+            messagingTemplate.convertAndSend(
+                "/topic/conversations/" + conversation.getId(),
+                typingEvent
+            );
+
+            log.debug("Sent TYPING_START event for conversation: {}", conversation.getId());
+        } catch (Exception e) {
+            log.warn("Failed to send typing start event", e);
+        }
+    }
+
+    /**
+     * Send typing stop event via WebSocket
+     */
+    private void sendTypingStopEvent(Conversation conversation) {
+        try {
+            Map<String, Object> typingEvent = new HashMap<>();
+            typingEvent.put("type", "TYPING_STOP");
+            typingEvent.put("conversationId", conversation.getId());
+            typingEvent.put("sender", "PetCare AI");
+            typingEvent.put("timestamp", LocalDateTime.now());
+            typingEvent.put("isTyping", false);
+
+            messagingTemplate.convertAndSend(
+                "/topic/conversations/" + conversation.getId(),
+                typingEvent
+            );
+
+            log.debug("Sent TYPING_STOP event for conversation: {}", conversation.getId());
+        } catch (Exception e) {
+            log.warn("Failed to send typing stop event", e);
+        }
+    }
+
+    /**
+     * Get appropriate typing message based on user query context
+     */
+    private String getTypingMessageForQuery(String userQuery) {
+        if (userQuery == null || userQuery.trim().isEmpty()) {
+            return "AI đang chuẩn bị tư vấn...";
+        }
+
+        String lowerQuery = userQuery.toLowerCase();
+
+        // Adoption-related queries
+        if (lowerQuery.contains("nhận nuôi") || lowerQuery.contains("tìm thú cưng") ||
+            lowerQuery.contains("giới thiệu thú cưng") || lowerQuery.contains("tìm chó") ||
+            lowerQuery.contains("tìm mèo") || lowerQuery.contains("thú cưng nào")) {
+            return "AI đang tìm kiếm thú cưng phù hợp với yêu cầu của bạn...";
+        }
+
+        // Health-related queries
+        if (lowerQuery.contains("bệnh") || lowerQuery.contains("ốm") ||
+            lowerQuery.contains("triệu chứng") || lowerQuery.contains("thuốc") ||
+            lowerQuery.contains("bác sĩ") || lowerQuery.contains("khám")) {
+            return "AI đang phân tích triệu chứng và chuẩn bị tư vấn...";
+        }
+
+        // Care-related queries
+        if (lowerQuery.contains("ăn") || lowerQuery.contains("uống") ||
+            lowerQuery.contains("dinh dưỡng") || lowerQuery.contains("chăm sóc")) {
+            return "AI đang tư vấn về chế độ dinh dưỡng và chăm sóc...";
+        }
+
+        // Training/behavior queries
+        if (lowerQuery.contains("huấn luyện") || lowerQuery.contains("hành vi") ||
+            lowerQuery.contains("ngoan") || lowerQuery.contains("cắn")) {
+            return "AI đang chuẩn bị lời khuyên về huấn luyện thú cưng...";
+        }
+
+        // General greeting or casual conversation
+        if (lowerQuery.contains("chào") || lowerQuery.contains("hello") ||
+            lowerQuery.contains("cảm ơn") || lowerQuery.contains("thanks")) {
+            return "AI đang chuẩn bị chào hỏi và tư vấn...";
+        }
+
+        // Default typing message
+        return "AI đang tư vấn về thú cưng của bạn...";
     }
 
 
