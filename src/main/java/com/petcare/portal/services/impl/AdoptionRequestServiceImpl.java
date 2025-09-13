@@ -16,6 +16,7 @@ import com.petcare.portal.repositories.AdoptionListingsRepository;
 import com.petcare.portal.repositories.AdoptionRequestRepository;
 import com.petcare.portal.repositories.UserRepository;
 import com.petcare.portal.services.AdoptionRequestService;
+import com.petcare.portal.services.NotificationShelterService;
 
 @Service
 public class AdoptionRequestServiceImpl implements AdoptionRequestService {
@@ -31,6 +32,9 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
 
   @Autowired
   private ModelMapper modelMapper;
+
+  @Autowired
+  private NotificationShelterService notificationService;
 
   @Override
   public List<AdoptionRequest> getRequestsByAdoptionListingId(Long adoptionListingId) {
@@ -61,7 +65,15 @@ public class AdoptionRequestServiceImpl implements AdoptionRequestService {
       request.setDistance(distance);
       request.setStatus(RequestStatus.PENDING);
 
-      return adoptionRequestRepository.save(request);
+      AdoptionRequest savedRequest = adoptionRequestRepository.save(request);
+
+      Long shelterId = listing.getShelter().getId();
+      String notificationMessage = "You have a new adoption request from " + owner.getFirstName() + " "
+          + owner.getLastName() +
+          " for pet: " + listing.getPetName() + ". Distance: " + distance;
+      notificationService.sendAdoptionRequestNotification(shelterId, notificationMessage);
+
+      return savedRequest;
     } catch (Exception e) {
       throw new RuntimeException("Error creating adoption request: " + e.getMessage());
     }
