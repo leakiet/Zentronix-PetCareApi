@@ -124,40 +124,46 @@ public class ClinicInfoServiceImpl implements ClinicInfoService {
     }
   }
 
-  @Override
-  public List<ClinicInfoResponse> searchClinicInfos(String specialization, String location) {
-    List<ClinicInfo> clinics = new ArrayList<>();
-    try {
-      if (specialization != null && !specialization.isEmpty()) {
-        Specialization spec = Specialization.valueOf(specialization.toUpperCase());
-        clinics = clinicInfoRepository.findBySpecialization(spec);
-        System.out.println("Clinics by specialization '" + specialization + "': " + clinics.size());
-        clinics.forEach(c -> System.out.println("Clinic: " + c.getClinicName() + ", Spec: " + c.getSpecialization() + ", Address: '" + c.getAddress() + "'"));
-      }
+  // @Override
+  // public List<ClinicInfoResponse> searchClinicInfos(String specialization,
+  // String location) {
+  // List<ClinicInfo> clinics = new ArrayList<>();
+  // try {
+  // if (specialization != null && !specialization.isEmpty()) {
+  // Specialization spec = Specialization.valueOf(specialization.toUpperCase());
+  // clinics = clinicInfoRepository.findBySpecialization(spec);
+  // System.out.println("Clinics by specialization '" + specialization + "': " +
+  // clinics.size());
+  // clinics.forEach(c -> System.out.println("Clinic: " + c.getClinicName() + ",
+  // Spec: " + c.getSpecialization() + ", Address: '" + c.getAddress() + "'"));
+  // }
 
-      if (location != null && !location.isEmpty()) {
-        System.out.println("Filtering by location: '" + location + "'");
-        List<ClinicInfo> originalClinics = new ArrayList<>(clinics);  // Sao lưu clinics gốc
-        clinics = clinics.stream()
-          .filter(clinic -> clinic.getAddress() != null && clinic.getAddress().toLowerCase().contains(location.toLowerCase()))
-          .collect(Collectors.toList());
-        System.out.println("Filtered clinics by location: " + clinics.size());
+  // if (location != null && !location.isEmpty()) {
+  // System.out.println("Filtering by location: '" + location + "'");
+  // List<ClinicInfo> originalClinics = new ArrayList<>(clinics); // Sao lưu
+  // clinics gốc
+  // clinics = clinics.stream()
+  // .filter(clinic -> clinic.getAddress() != null &&
+  // clinic.getAddress().toLowerCase().contains(location.toLowerCase()))
+  // .collect(Collectors.toList());
+  // System.out.println("Filtered clinics by location: " + clinics.size());
 
-        // Nếu không tìm thấy, fallback về clinics gốc (lân cận hoặc tất cả)
-        if (clinics.isEmpty()) {
-          clinics = originalClinics;
-          System.out.println("No clinics found at exact location, returning all clinics for specialization: " + clinics.size());
-        }
-      }
+  // // Nếu không tìm thấy, fallback về clinics gốc (lân cận hoặc tất cả)
+  // if (clinics.isEmpty()) {
+  // clinics = originalClinics;
+  // System.out.println("No clinics found at exact location, returning all clinics
+  // for specialization: " + clinics.size());
+  // }
+  // }
 
-      return clinics.stream()
-        .map(clinic -> modelMapper.map(clinic, ClinicInfoResponse.class))
-        .collect(Collectors.toList());
-    } catch (Exception e) {
-      System.err.println("Error in searchClinicInfos: " + e.getMessage());
-      return new ArrayList<>();
-    }
-  }
+  // return clinics.stream()
+  // .map(clinic -> modelMapper.map(clinic, ClinicInfoResponse.class))
+  // .collect(Collectors.toList());
+  // } catch (Exception e) {
+  // System.err.println("Error in searchClinicInfos: " + e.getMessage());
+  // return new ArrayList<>();
+  // }
+  // }
 
   private ClinicInfoResponse mapToResponse(ClinicInfo clinicInfo) {
     try {
@@ -166,6 +172,18 @@ public class ClinicInfoServiceImpl implements ClinicInfoService {
       return response;
     } catch (Exception e) {
       throw new RuntimeException("Error mapping clinic info to response: " + e.getMessage());
+    }
+  }
+
+  @Override
+  public List<ClinicInfoResponse> listAllClinicInfos() {
+    try {
+      List<ClinicInfo> allClinics = clinicInfoRepository.findAll();
+      return allClinics.stream()
+          .map(this::mapToResponse)
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException("Error retrieving all clinic infos: " + e.getMessage());
     }
   }
 }
