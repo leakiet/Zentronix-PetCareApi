@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.petcare.portal.dtos.ChatRequest;
 import com.petcare.portal.dtos.ChatResponse;
@@ -49,6 +52,9 @@ public class ChatServiceImpl implements ChatService {
     private final ResourceLoader resourceLoader;
     private final Tools tools;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Value("${petcare.ai.max-messages-before-summary:20}")
     private int maxMessagesBeforeSummary;
@@ -95,8 +101,12 @@ public class ChatServiceImpl implements ChatService {
                 request.getMessage(), needsSummary);
 
             String cleanedAiResponse = cleanEmojiAndUnicode(aiResponse.getMessage());
+
+            // Serialize adoption data to JSON for storage
+            String adoptionDataJson = serializeAdoptionDataToJson(aiResponse.getAdoptionData());
+
             ChatMessage aiMessage = createAIMessage(conversation, cleanedAiResponse,
-                user != null ? user.getId() : null);
+                user != null ? user.getId() : null, adoptionDataJson);
             chatMessageRepository.save(aiMessage);
 
             if (cleanedAiResponse == null || cleanedAiResponse.trim().isEmpty()) {
@@ -241,18 +251,22 @@ public class ChatServiceImpl implements ChatService {
 
         // Can save senderRole to ChatMessage if needed, but currently no such field in entity
         // Log senderRole for debugging
-        log.debug("Creating user message with senderRole: {}", senderRole);
 
         return chatMessage;
     }
 
     private ChatMessage createAIMessage(Conversation conversation, String message, Long userId) {
+        return createAIMessage(conversation, message, userId, null);
+    }
+
+    private ChatMessage createAIMessage(Conversation conversation, String message, Long userId, String adoptionDataJson) {
         ChatMessage chatMessage = new ChatMessage();
         chatMessage.setConversation(conversation);
         chatMessage.setContent(message);
         chatMessage.setSenderName("PetCare AI");
         chatMessage.setIsFromAI(true);
         chatMessage.setTimestamp(LocalDateTime.now());
+        chatMessage.setAdoptionDataJson(adoptionDataJson);
 
         if (userId != null) {
             User user = userRepository.findById(userId)
@@ -391,35 +405,35 @@ public class ChatServiceImpl implements ChatService {
 
             String cleanedResponse = cleanMarkdown(response);
 
-            return new ChatResponse(
-                conversation.getId(),
-                "PetCare AI",
-                cleanedResponse,
-                true,
-                "COMPLETED",
-                null, // messageId will be set when saved
-                LocalDateTime.now(),
-                "AI",
-                false,
-                null,
-                null // No adoption data for non-adoption queries
-            );
+            ChatResponse chatResponse = new ChatResponse();
+            chatResponse.setConversationId(conversation.getId());
+            chatResponse.setSender("PetCare AI");
+            chatResponse.setMessage(cleanedResponse);
+            chatResponse.setIsFromAI(true);
+            chatResponse.setStatus("COMPLETED");
+            chatResponse.setMessageId(null); // messageId will be set when saved
+            chatResponse.setTimestamp(LocalDateTime.now());
+            chatResponse.setConversationStatus("AI");
+            chatResponse.setIsTyping(false);
+            chatResponse.setTypingMessage(null);
+            chatResponse.setAdoptionData(null); // No adoption data for non-adoption queries
+            return chatResponse;
 
         } catch (Exception e) {
             log.error("Error generating AI response without tools", e);
-            return new ChatResponse(
-                conversation.getId(),
-                "PetCare AI",
-                "Sorry, I cannot process your request at this time. Please try again later.",
-                true,
-                "ERROR",
-                null,
-                LocalDateTime.now(),
-                "AI",
-                false,
-                null,
-                null
-            );
+            ChatResponse errorResponse = new ChatResponse();
+            errorResponse.setConversationId(conversation.getId());
+            errorResponse.setSender("PetCare AI");
+            errorResponse.setMessage("Sorry, I cannot process your request at this time. Please try again later.");
+            errorResponse.setIsFromAI(true);
+            errorResponse.setStatus("ERROR");
+            errorResponse.setMessageId(null);
+            errorResponse.setTimestamp(LocalDateTime.now());
+            errorResponse.setConversationStatus("AI");
+            errorResponse.setIsTyping(false);
+            errorResponse.setTypingMessage(null);
+            errorResponse.setAdoptionData(null);
+            return errorResponse;
         }
     }
 
@@ -546,6 +560,18 @@ public class ChatServiceImpl implements ChatService {
         response.setMessageId(message.getId());
         response.setTimestamp(message.getTimestamp());
         response.setConversationStatus("AI");
+
+        // Populate adoption data from stored JSON if available
+        if (message.getAdoptionDataJson() != null && !message.getAdoptionDataJson().trim().isEmpty()) {
+            try {
+                AdoptionListingsAiResponse adoptionData = parseAdoptionDataJson(message.getAdoptionDataJson());
+                response.setAdoptionData(adoptionData);
+            } catch (Exception e) {
+                log.warn("Failed to parse adoptionDataJson for message {}: {}", message.getId(), e.getMessage());
+                // Continue without adoption data if parsing fails
+            }
+        }
+
         return response;
     }
 
@@ -870,10 +896,6 @@ public class ChatServiceImpl implements ChatService {
                 .tools(tools)
                 .call();
 
-            // DEBUG: Log function calling details
-            log.debug("=== FUNCTION CALLING DEBUG ===");
-            log.debug("User prompt: {}", prompt);
-            log.debug("Available tools: searchAdoptionListings, getAdoptionListingDetails, getAdoptionStatistics, findMatchingPets");
 
             // Get AI text response
             String aiResponse = chatResponse.content();
@@ -882,8 +904,6 @@ public class ChatServiceImpl implements ChatService {
             // Clean pet lists from text response - let FE use structured data
             cleanedResponse = cleanPetListFromText(cleanedResponse);
 
-            log.debug("AI Response: {}", aiResponse);
-            log.debug("Cleaned Response: {}", cleanedResponse);
 
             // Get structured data from Spring AI function calling
             // Pure function calling - only use Spring AI entity extraction
@@ -892,10 +912,6 @@ public class ChatServiceImpl implements ChatService {
                 adoptionData = chatResponse.entity(AdoptionListingsAiResponse.class);
 
                 if (adoptionData != null && adoptionData.getAdoption() != null && !adoptionData.getAdoption().isEmpty()) {
-                    log.debug("✅ FUNCTION CALLING SUCCESS: {} pets returned", adoptionData.getAdoption().size());
-                    log.debug("Pet data: {}", adoptionData.getAdoption().stream()
-                             .map(p -> p.getPetName() + "(" + p.getSpecies() + ")")
-                             .toList());
 
                     // Ensure adoptionData has proper message
                     if (adoptionData.getMessage() == null || adoptionData.getMessage().isEmpty()) {
@@ -903,7 +919,6 @@ public class ChatServiceImpl implements ChatService {
                     }
 
                 } else if (adoptionData != null) {
-                    log.debug("⚠️ FUNCTION CALLING: Tools called but no pets found with specific criteria");
 
                     // Ensure adoptionData has proper structure for empty results
                     if (adoptionData.getMessage() == null || adoptionData.getMessage().isEmpty()) {
@@ -914,47 +929,45 @@ public class ChatServiceImpl implements ChatService {
                     }
 
                 } else {
-                    log.debug("ℹ️ NO STRUCTURED DATA: AI responded with text only");
                     // AI didn't call tools, create minimal adoptionData
                     adoptionData = new AdoptionListingsAiResponse();
                     adoptionData.setMessage("I have answered your question.");
                     adoptionData.setAdoption(List.of());
                 }
         } catch (Exception e) {
-                log.debug("❌ FUNCTION CALLING FAILED: Entity extraction error - {}", e.getMessage());
-                log.debug("This means AI did not execute any tools");
+                log.warn("Function calling failed: {}", e.getMessage());
                 adoptionData = null;
             }
 
-            return new ChatResponse(
-                conversation.getId(),
-                "PetCare AI",
-                cleanedResponse,
-                true,
-                "COMPLETED",
-                null, // messageId will be set when saved
-                LocalDateTime.now(),
-                "AI",
-                false,
-                null,
-                adoptionData // Structured data from tool calls
-            );
+            ChatResponse response = new ChatResponse();
+            response.setConversationId(conversation.getId());
+            response.setSender("PetCare AI");
+            response.setMessage(cleanedResponse);
+            response.setIsFromAI(true);
+            response.setStatus("COMPLETED");
+            response.setMessageId(null); // messageId will be set when saved
+            response.setTimestamp(LocalDateTime.now());
+            response.setConversationStatus("AI");
+            response.setIsTyping(false);
+            response.setTypingMessage(null);
+            response.setAdoptionData(adoptionData); // Structured data from tool calls
+            return response;
 
         } catch (Exception e) {
             log.error("Error in function calling response generation", e);
-            return new ChatResponse(
-                conversation.getId(),
-                "PetCare AI",
-                "Sorry, I cannot process your request at this time. Please try again later.",
-                true,
-                "ERROR",
-                null,
-                LocalDateTime.now(),
-                "AI",
-                false,
-                null,
-                null
-            );
+            ChatResponse errorResponse = new ChatResponse();
+            errorResponse.setConversationId(conversation.getId());
+            errorResponse.setSender("PetCare AI");
+            errorResponse.setMessage("Sorry, I cannot process your request at this time. Please try again later.");
+            errorResponse.setIsFromAI(true);
+            errorResponse.setStatus("ERROR");
+            errorResponse.setMessageId(null);
+            errorResponse.setTimestamp(LocalDateTime.now());
+            errorResponse.setConversationStatus("AI");
+            errorResponse.setIsTyping(false);
+            errorResponse.setTypingMessage(null);
+            errorResponse.setAdoptionData(null);
+            return errorResponse;
         }
     }
 
@@ -979,8 +992,6 @@ public class ChatServiceImpl implements ChatService {
                 "/topic/conversations/" + conversation.getId(),
                 typingEvent
             );
-
-            log.debug("Sent TYPING_START event for conversation: {}", conversation.getId());
         } catch (Exception e) {
             log.warn("Failed to send typing start event", e);
         }
@@ -1013,8 +1024,6 @@ public class ChatServiceImpl implements ChatService {
                 "/topic/conversations/" + conversation.getId(),
                 typingEvent
             );
-
-            log.debug("Sent TYPING_STOP event for conversation: {}", conversation.getId());
         } catch (Exception e) {
             log.warn("Failed to send typing stop event", e);
         }
@@ -1154,8 +1163,39 @@ public class ChatServiceImpl implements ChatService {
             return state.getTimestamp().isBefore(cutoffTime);
         });
 
-        log.debug("Cleaned up old typing states. Remaining: {}", typingStateMap.size());
     }
 
+    /**
+     * Parse adoptionDataJson string to AdoptionListingsAiResponse object
+     */
+    private AdoptionListingsAiResponse parseAdoptionDataJson(String adoptionDataJson) {
+        if (adoptionDataJson == null || adoptionDataJson.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(adoptionDataJson, AdoptionListingsAiResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to parse adoptionDataJson: {}", e.getMessage());
+            throw new RuntimeException("Failed to parse adoption data", e);
+        }
+    }
+
+
+    /**
+     * Serialize AdoptionListingsAiResponse object to JSON string
+     */
+    private String serializeAdoptionDataToJson(AdoptionListingsAiResponse adoptionData) {
+        if (adoptionData == null) {
+            return null;
+        }
+
+        try {
+            return objectMapper.writeValueAsString(adoptionData);
+        } catch (Exception e) {
+            log.error("Failed to serialize adoptionData: {}", e.getMessage());
+            return null;
+        }
+    }
 
 }

@@ -28,9 +28,15 @@ public class ChatMessage extends AbstractEntity {
     @Lob private String content;
     private LocalDateTime timestamp;
 
+    @Column(name = "adoption_data_json",columnDefinition = "MEDIUMTEXT")
+    @Lob
+    private String adoptionDataJson;
+
+    
+
     public ChatMessage(Long id, User user, Conversation conversation,
                        String senderName, Boolean isFromAI,
-                       String content, LocalDateTime timestamp) {
+                       String content, LocalDateTime timestamp, String adoptionDataJson) {
         this.id = id;
         this.user = user;
         this.conversation = conversation;
@@ -38,5 +44,6 @@ public class ChatMessage extends AbstractEntity {
         this.isFromAI = isFromAI;
         this.content = content;
         this.timestamp = timestamp;
+        this.adoptionDataJson = adoptionDataJson;
     }
 }
