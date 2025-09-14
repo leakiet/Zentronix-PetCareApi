@@ -1,0 +1,14 @@
+package com.petcare.portal.enums;
+
+public enum Specialization {
+  GENERAL_CHECKUP,
+  VACCINATION,
+  DENTAL_CARE,
+  SKIN_ISSUES,
+  DIGESTIVE_PROBLEMS,
+  INJURY_TRAUMA,
+  BEHAVIORAL_ISSUES,
+  SENIOR_PET_CARE,
+  EMERGENCY_CARE,
+  OTHERS
+}

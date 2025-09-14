@@ -1,7 +1,8 @@
 package com.petcare.portal.entities;
 
+import java.time.LocalDateTime;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.google.api.client.util.DateTime;
 import com.petcare.portal.enums.AppointmentStatus;
 
 import jakarta.persistence.Entity;
@@ -37,7 +38,7 @@ public class Appointment extends AbstractEntity {
   @JsonBackReference
   private User vet;
 
-  private DateTime appointmentTime;
+  private LocalDateTime appointmentTime;
   private String reason;
   private String notes;
 
