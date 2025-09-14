@@ -6,8 +6,11 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +40,9 @@ public class ChatController {
     private final ConversationRepository conversationRepository;
     private final ChatMessageRepository chatMessageRepository;
     private static final Logger log =LoggerFactory.getLogger(ChatController.class);
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * Endpoint to send message to AI.
@@ -136,6 +142,20 @@ public class ChatController {
         response.setConversationStatus("AI"); // Default status
         response.setIsTyping(false);
         response.setTypingMessage(null);
+
+        // Parse adoptionDataJson from ChatMessage entity to adoptionData in ChatResponse
+        if (message.getAdoptionDataJson() != null && !message.getAdoptionDataJson().trim().isEmpty()) {
+            try {
+                com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsAiResponse adoptionData =
+                    parseAdoptionDataJson(message.getAdoptionDataJson());
+                response.setAdoptionData(adoptionData);
+            } catch (Exception e) {
+                log.warn("Failed to parse adoptionDataJson for message {} in controller: {}",
+                        message.getId(), e.getMessage());
+                // Continue without adoption data if parsing fails
+            }
+        }
+
         return response;
     }
 
@@ -547,6 +567,23 @@ public class ChatController {
             result.put("success", false);
             result.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+
+    /**
+     * Parse adoptionDataJson string to AdoptionListingsAiResponse object
+     */
+    private com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsAiResponse parseAdoptionDataJson(String adoptionDataJson) {
+        if (adoptionDataJson == null || adoptionDataJson.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(adoptionDataJson, com.petcare.portal.dtos.AdoptionListingsDto.AdoptionListingsAiResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to parse adoptionDataJson in controller: {}", e.getMessage());
+            throw new RuntimeException("Failed to parse adoption data", e);
         }
     }
 }

@@ -14,4 +14,5 @@ import java.util.List;
 public class AdoptionListingsAiResponse {
     private String message;
     private List<AdoptionListingsResponse> adoption;
+    
 }
