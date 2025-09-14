@@ -10,5 +10,6 @@ public interface ClinicInfoService {
   ClinicInfoResponse createClinicInfo(ClinicInfoRequest clinicInfoRequest);
   ClinicInfoResponse updateClinicInfo(Long id, ClinicInfoRequest clinicInfoRequest);
   void deleteClinicInfo(Long id);
-  List<ClinicInfoResponse> searchClinicInfos(String specialization, String location);
+  // List<ClinicInfoResponse> searchClinicInfos(String specialization, String location);
+  List<ClinicInfoResponse> listAllClinicInfos();
 }
