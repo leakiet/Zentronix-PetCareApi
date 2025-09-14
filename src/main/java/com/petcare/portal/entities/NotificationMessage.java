@@ -9,4 +9,5 @@ public class NotificationMessage {
   private String type;
   private String message;
   private Long requestId;
+  private Long appointmentId;
 }
